@@ -2,7 +2,8 @@
 // VERSION la sustituye automáticamente el workflow de despliegue (.github/workflows/deploy.yml)
 // por una basada en el commit; no hace falta tocarla a mano.
 const VERSION = 'lexi-4.0.0';
-const SHELL = ['./', './index.html', './app.js', './content.js', './grammar.js', './guides.js', './exams.js', './phrasal.js', './writing.js', './content_en.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
+const SHELL = ['./', './index.html', './app.js', './content.js', './grammar.js', './guides.js', './exams.js', './phrasal.js', './writing.js', './content_en.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png',
+  './fonts/barlow-400.woff2', './fonts/barlow-500.woff2', './fonts/barlow-600.woff2', './fonts/barlow-700.woff2', './fonts/barlow-condensed-600.woff2', './fonts/barlow-condensed-700.woff2'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

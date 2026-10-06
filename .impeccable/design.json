@@ -1,0 +1,858 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-06T14:26:09.059Z",
+  "title": "Design System: Lexi",
+  "extensions": {
+    "colorMeta": {
+      "course": {
+        "role": "primary",
+        "displayName": "Course Overprint Purple",
+        "cssVar": "--course",
+        "canonical": "oklch(48.7% 0.213 303.6)",
+        "tonalRamp": [
+          "#230052",
+          "#3D0074",
+          "#5A0098",
+          "#7929BC",
+          "#9C53E5",
+          "#C27BFF",
+          "#E9A2FF",
+          "#FFC6FF"
+        ],
+        "dark": "#B07CF0"
+      },
+      "course-ink": {
+        "role": "primary",
+        "displayName": "Course Ink",
+        "cssVar": "--course-ink",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#808080",
+          "#A4A4A4",
+          "#CACACA",
+          "#EEEEEE"
+        ],
+        "dark": "#1A0D2B"
+      },
+      "course-soft": {
+        "role": "primary",
+        "displayName": "Course Soft",
+        "cssVar": "--course-soft",
+        "canonical": "oklch(48.7% 0.213 303.6)",
+        "tonalRamp": [
+          "#230052",
+          "#3D0074",
+          "#5A0098",
+          "#7929BC",
+          "#9C53E5",
+          "#C27BFF",
+          "#E9A2FF",
+          "#FFC6FF"
+        ],
+        "dark": "#2C1F40"
+      },
+      "course-line": {
+        "role": "primary",
+        "displayName": "Course Line",
+        "cssVar": "--course-line",
+        "canonical": "oklch(48.7% 0.213 303.6)",
+        "tonalRamp": [
+          "#230052",
+          "#3D0074",
+          "#5A0098",
+          "#7929BC",
+          "#9C53E5",
+          "#C27BFF",
+          "#E9A2FF",
+          "#FFC6FF"
+        ],
+        "dark": "#B07CF0"
+      },
+      "map-white": {
+        "role": "neutral",
+        "displayName": "Map White",
+        "cssVar": "--bg",
+        "canonical": "oklch(96.7% 0.008 121.6)",
+        "tonalRamp": [
+          "#0B0C08",
+          "#232520",
+          "#3F403C",
+          "#5D5E59",
+          "#7F817C",
+          "#A4A5A0",
+          "#C9CBC6",
+          "#EDEFE9"
+        ],
+        "dark": "#121510"
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Sheet White",
+        "cssVar": "--surface",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#808080",
+          "#A4A4A4",
+          "#CACACA",
+          "#EEEEEE"
+        ],
+        "dark": "#1B1F18"
+      },
+      "surface-2": {
+        "role": "neutral",
+        "displayName": "Shaded Row",
+        "cssVar": "--surface-2",
+        "canonical": "oklch(96.7% 0.008 121.6)",
+        "tonalRamp": [
+          "#0B0C08",
+          "#232520",
+          "#3F403C",
+          "#5D5E59",
+          "#7F817C",
+          "#A4A5A0",
+          "#C9CBC6",
+          "#EDEFE9"
+        ],
+        "dark": "#242920"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Map Black",
+        "cssVar": "--ink",
+        "canonical": "oklch(24.1% 0.017 122.7)",
+        "tonalRamp": [
+          "#0A0C05",
+          "#22251C",
+          "#3E4137",
+          "#5C5F55",
+          "#7E8277",
+          "#A2A69B",
+          "#C8CCC0",
+          "#ECF1E4"
+        ],
+        "dark": "#E9ECE2"
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Brown Grey",
+        "cssVar": "--muted",
+        "canonical": "oklch(47.4% 0.032 77.9)",
+        "tonalRamp": [
+          "#120900",
+          "#2D2212",
+          "#493E2D",
+          "#685C4A",
+          "#8B7E6B",
+          "#B0A38F",
+          "#D6C8B4",
+          "#FBECD7"
+        ],
+        "dark": "#B9AC93"
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "cssVar": "--line",
+        "canonical": "oklch(81.0% 0.034 79.2)",
+        "tonalRamp": [
+          "#130900",
+          "#2D2210",
+          "#493E2B",
+          "#685C48",
+          "#8B7E6A",
+          "#B0A38D",
+          "#D7C8B2",
+          "#FBECD6"
+        ],
+        "dark": "#30362B"
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "cssVar": "--rule",
+        "canonical": "oklch(81.0% 0.034 79.2)",
+        "tonalRamp": [
+          "#130900",
+          "#2D2210",
+          "#493E2B",
+          "#685C48",
+          "#8B7E6A",
+          "#B0A38D",
+          "#D7C8B2",
+          "#FBECD6"
+        ],
+        "dark": "#4C4234"
+      },
+      "contour": {
+        "role": "secondary",
+        "displayName": "Contour Brown",
+        "cssVar": "--contour",
+        "canonical": "oklch(51.3% 0.091 61.6)",
+        "tonalRamp": [
+          "#220000",
+          "#411500",
+          "#613200",
+          "#825121",
+          "#A77345",
+          "#CE9868",
+          "#F6BE8D",
+          "#FFE1B0"
+        ],
+        "dark": "#C89A6A"
+      },
+      "open": {
+        "role": "secondary",
+        "displayName": "Open Land Yellow",
+        "cssVar": "--open",
+        "canonical": "oklch(88.0% 0.154 89.8)",
+        "tonalRamp": [
+          "#220000",
+          "#401700",
+          "#5F3600",
+          "#7F5600",
+          "#A47900",
+          "#CA9E00",
+          "#F2C53D",
+          "#FFE967"
+        ],
+        "dark": "#E8BC3A"
+      },
+      "open-bg": {
+        "role": "secondary",
+        "displayName": "Open Land Wash",
+        "cssVar": "--open-bg",
+        "canonical": "oklch(88.0% 0.154 89.8)",
+        "tonalRamp": [
+          "#220000",
+          "#401700",
+          "#5F3600",
+          "#7F5600",
+          "#A47900",
+          "#CA9E00",
+          "#F2C53D",
+          "#FFE967"
+        ],
+        "dark": "#3A3112"
+      },
+      "open-ink": {
+        "role": "secondary",
+        "displayName": "Open Land Ink",
+        "cssVar": "--open-ink",
+        "canonical": "oklch(88.0% 0.154 89.8)",
+        "tonalRamp": [
+          "#220000",
+          "#401700",
+          "#5F3600",
+          "#7F5600",
+          "#A47900",
+          "#CA9E00",
+          "#F2C53D",
+          "#FFE967"
+        ],
+        "dark": "#F2CE63"
+      },
+      "thicket": {
+        "role": "secondary",
+        "displayName": "Thicket Green",
+        "cssVar": "--thicket",
+        "canonical": "oklch(73.9% 0.098 117.7)",
+        "tonalRamp": [
+          "#0A0E00",
+          "#212900",
+          "#3C4600",
+          "#596519",
+          "#7B8840",
+          "#9FAD64",
+          "#C5D489",
+          "#E8F8AC"
+        ],
+        "dark": "#8FA05A"
+      },
+      "thicket-bg": {
+        "role": "secondary",
+        "displayName": "Thicket Wash",
+        "cssVar": "--thicket-bg",
+        "canonical": "oklch(73.9% 0.098 117.7)",
+        "tonalRamp": [
+          "#0A0E00",
+          "#212900",
+          "#3C4600",
+          "#596519",
+          "#7B8840",
+          "#9FAD64",
+          "#C5D489",
+          "#E8F8AC"
+        ],
+        "dark": "#232C17"
+      },
+      "thicket-ink": {
+        "role": "secondary",
+        "displayName": "Thicket Ink",
+        "cssVar": "--thicket-ink",
+        "canonical": "oklch(73.9% 0.098 117.7)",
+        "tonalRamp": [
+          "#0A0E00",
+          "#212900",
+          "#3C4600",
+          "#596519",
+          "#7B8840",
+          "#9FAD64",
+          "#C5D489",
+          "#E8F8AC"
+        ],
+        "dark": "#B9CB7E"
+      },
+      "water": {
+        "role": "secondary",
+        "displayName": "Marsh Blue",
+        "cssVar": "--water",
+        "canonical": "oklch(70.0% 0.100 239.0)",
+        "tonalRamp": [
+          "#000930",
+          "#00274E",
+          "#00456E",
+          "#146490",
+          "#3F88B5",
+          "#65ADDD",
+          "#8BD4FF",
+          "#AFF9FF"
+        ],
+        "dark": "#6BB3E0"
+      },
+      "water-bg": {
+        "role": "secondary",
+        "displayName": "Marsh Wash",
+        "cssVar": "--water-bg",
+        "canonical": "oklch(70.0% 0.100 239.0)",
+        "tonalRamp": [
+          "#000930",
+          "#00274E",
+          "#00456E",
+          "#146490",
+          "#3F88B5",
+          "#65ADDD",
+          "#8BD4FF",
+          "#AFF9FF"
+        ],
+        "dark": "#15283A"
+      },
+      "water-ink": {
+        "role": "secondary",
+        "displayName": "Marsh Ink",
+        "cssVar": "--water-ink",
+        "canonical": "oklch(70.0% 0.100 239.0)",
+        "tonalRamp": [
+          "#000930",
+          "#00274E",
+          "#00456E",
+          "#146490",
+          "#3F88B5",
+          "#65ADDD",
+          "#8BD4FF",
+          "#AFF9FF"
+        ],
+        "dark": "#8CC6EC"
+      },
+      "ok": {
+        "role": "tertiary",
+        "displayName": "Correct Green",
+        "cssVar": "--ok",
+        "canonical": "oklch(45.4% 0.100 127.1)",
+        "tonalRamp": [
+          "#021000",
+          "#162B00",
+          "#314900",
+          "#4E6823",
+          "#708B47",
+          "#94B06B",
+          "#B9D790",
+          "#DCFCB2"
+        ],
+        "dark": "#B9CB7E"
+      },
+      "ok-bg": {
+        "role": "tertiary",
+        "displayName": "Correct Wash",
+        "cssVar": "--ok-bg",
+        "canonical": "oklch(45.4% 0.100 127.1)",
+        "tonalRamp": [
+          "#021000",
+          "#162B00",
+          "#314900",
+          "#4E6823",
+          "#708B47",
+          "#94B06B",
+          "#B9D790",
+          "#DCFCB2"
+        ],
+        "dark": "#232C17"
+      },
+      "near": {
+        "role": "tertiary",
+        "displayName": "Near Amber",
+        "cssVar": "--near",
+        "canonical": "oklch(47.5% 0.099 78.4)",
+        "tonalRamp": [
+          "#1F0100",
+          "#3D1A00",
+          "#5B3700",
+          "#7C5503",
+          "#A07834",
+          "#C69D59",
+          "#EEC37F",
+          "#FFE7A2"
+        ],
+        "dark": "#F2C14E"
+      },
+      "near-bg": {
+        "role": "tertiary",
+        "displayName": "Near Wash",
+        "cssVar": "--near-bg",
+        "canonical": "oklch(47.5% 0.099 78.4)",
+        "tonalRamp": [
+          "#1F0100",
+          "#3D1A00",
+          "#5B3700",
+          "#7C5503",
+          "#A07834",
+          "#C69D59",
+          "#EEC37F",
+          "#FFE7A2"
+        ],
+        "dark": "#3A2E10"
+      },
+      "bad": {
+        "role": "tertiary",
+        "displayName": "Mistake Red",
+        "cssVar": "--bad",
+        "canonical": "oklch(51.8% 0.169 31.9)",
+        "tonalRamp": [
+          "#380000",
+          "#5D0000",
+          "#820000",
+          "#A82611",
+          "#D24F39",
+          "#FC765E",
+          "#FF9D83",
+          "#FFC1A5"
+        ],
+        "dark": "#F48A73"
+      },
+      "bad-bg": {
+        "role": "tertiary",
+        "displayName": "Mistake Wash",
+        "cssVar": "--bad-bg",
+        "canonical": "oklch(51.8% 0.169 31.9)",
+        "tonalRamp": [
+          "#380000",
+          "#5D0000",
+          "#820000",
+          "#A82611",
+          "#D24F39",
+          "#FC765E",
+          "#FF9D83",
+          "#FFC1A5"
+        ],
+        "dark": "#3A1C16"
+      },
+      "heat-0": {
+        "role": "neutral",
+        "displayName": "Heat 0 (empty)",
+        "cssVar": "--h0",
+        "dark": "#242920",
+        "tonalRamp": [
+          "#E6E9DE",
+          "#DCE5BE",
+          "#B8C886",
+          "#8FA05A",
+          "#47601A"
+        ],
+        "note": "Incumbent heatmap scale (light to dense) used as the ramp."
+      },
+      "heat-1": {
+        "role": "neutral",
+        "displayName": "Heat 1",
+        "cssVar": "--h1",
+        "dark": "#2F3B21"
+      },
+      "heat-2": {
+        "role": "neutral",
+        "displayName": "Heat 2",
+        "cssVar": "--h2",
+        "dark": "#4A5D2C"
+      },
+      "heat-3": {
+        "role": "neutral",
+        "displayName": "Heat 3",
+        "cssVar": "--h3",
+        "dark": "#7A8F45"
+      },
+      "heat-4": {
+        "role": "neutral",
+        "displayName": "Heat 4 (dense)",
+        "cssVar": "--h4",
+        "dark": "#B9CB7E"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "One uppercase view title per screen, Condensed 700."
+      },
+      "numeral": {
+        "displayName": "Numeral",
+        "purpose": "Session score and big timer; stats 32px, bands 26px, table values 20px."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Verdicts, feedback heads, session top-bar title, uppercase."
+      },
+      "prompt": {
+        "displayName": "Prompt",
+        "purpose": "The exercise sentence on the question sheet."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Panel and card titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All reading text, tabular figures; passages at 1.7 leading, 70ch max."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase control, tab, table-header and sheet-header labels."
+      },
+      "section": {
+        "displayName": "Section",
+        "purpose": "Uppercase contour-brown section heading with trailing 1px rule."
+      }
+    },
+    "themes": {
+      "light": {
+        "selector": ":root",
+        "default": true
+      },
+      "dark": {
+        "selectors": [
+          "@media (prefers-color-scheme: dark) :root:not([data-theme=\"light\"])",
+          ":root[data-theme=\"dark\"]"
+        ],
+        "note": "Same token names; dark values in colorMeta.<key>.dark. The Automatic/Light/Dark setting writes data-theme on <html>."
+      }
+    },
+    "skillKey": {
+      "vocabulary": "open",
+      "grammar": "thicket",
+      "use-of-english": "thicket",
+      "reading": "rough",
+      "listening": "water",
+      "writing": "contour",
+      "speaking": "rock",
+      "multiSkill": "tab icon, no swatch",
+      "source": "app.js SKILL_SW / skillOfPage"
+    },
+    "swatches": [
+      {
+        "name": "open",
+        "css": "background:var(--open)"
+      },
+      {
+        "name": "thicket",
+        "css": "background:var(--thicket);background-image:radial-gradient(rgba(255,255,255,.55) 1.2px,transparent 1.4px);background-size:6px 6px"
+      },
+      {
+        "name": "rough",
+        "css": "background:#FFF0B8;background-image:radial-gradient(#1E2118 .9px,transparent 1.2px);background-size:6px 6px"
+      },
+      {
+        "name": "water",
+        "css": "background:var(--water-bg);background-image:repeating-linear-gradient(0deg,var(--water) 0 1.5px,transparent 1.5px 5px)"
+      },
+      {
+        "name": "rock",
+        "css": "background:#BDB9AE;background-image:radial-gradient(#1E2118 1.3px,transparent 1.6px);background-size:8px 8px;background-position:2px 2px"
+      },
+      {
+        "name": "contour",
+        "css": "background:var(--surface) plus three brown contour paths (SVG data URI)"
+      }
+    ],
+    "borders": [
+      {
+        "name": "sheet-frame",
+        "value": "1.5px solid var(--ink)",
+        "purpose": "Ruled sheets: control-description tables, question sheets, stats, bands, timer, word bank."
+      },
+      {
+        "name": "rule",
+        "value": "1px solid var(--rule)",
+        "purpose": "Panels, lists, controls, table cells."
+      },
+      {
+        "name": "hairline",
+        "value": "1px solid var(--line)",
+        "purpose": "Row dividers inside lists and pages."
+      }
+    ],
+    "shadows": [
+      {
+        "name": "go-lift",
+        "value": "0 6px 18px rgba(123,44,191,.32)",
+        "purpose": "Sticky GO button on Home only."
+      },
+      {
+        "name": "shadow-up",
+        "value": "0 -1px 0 var(--line), 0 -10px 24px rgba(30,33,24,.06)",
+        "dark": "0 -1px 0 var(--line), 0 -10px 24px rgba(0,0,0,.4)",
+        "purpose": "Pinned session footer."
+      },
+      {
+        "name": "shadow",
+        "value": "0 1px 2px rgba(30,33,24,.06), 0 6px 18px rgba(30,33,24,.07)",
+        "dark": "0 1px 2px rgba(0,0,0,.4), 0 8px 22px rgba(0,0,0,.35)",
+        "purpose": "Toasts only."
+      }
+    ],
+    "focus": [
+      {
+        "name": "focus-ring",
+        "value": "outline:2px solid var(--course);outline-offset:2px",
+        "purpose": "All :focus-visible."
+      },
+      {
+        "name": "field-focus",
+        "value": "border-color:var(--course);box-shadow:0 0 0 3px var(--course-soft)",
+        "purpose": "Text fields."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease",
+        "value": "cubic-bezier(.16,1,.3,1)",
+        "purpose": "The single easing (expo out) for every transition."
+      },
+      {
+        "name": "leg-draw",
+        "value": "transform scaleX .7s (Home) / .6s (track)",
+        "purpose": "Course leg draws to the reached control after render."
+      },
+      {
+        "name": "tab-bar",
+        "value": "transform scaleX .35s",
+        "purpose": "Active tab top bar."
+      },
+      {
+        "name": "pop",
+        "value": ".45s from scale(.4)",
+        "purpose": "Current track control."
+      },
+      {
+        "name": "stamp",
+        "value": ".4s from scale(1.6), opacity 0",
+        "purpose": "Verdict mark."
+      },
+      {
+        "name": "shake",
+        "value": ".4s translateX -6px / 5px / -3px",
+        "purpose": "Wrong answer."
+      },
+      {
+        "name": "press",
+        "value": "transform scale(.98) .12s",
+        "purpose": "Button press."
+      },
+      {
+        "name": "view-transition",
+        "value": ".22s root crossfade",
+        "purpose": "View changes via document.startViewTransition."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "@media (prefers-reduced-motion: reduce): all transitions and animations none; no view transitions; no vibration",
+        "purpose": "Global kill switch."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "app-max",
+        "value": "560px",
+        "note": "Single centred column; no other breakpoints."
+      },
+      {
+        "name": "tabs-h",
+        "value": "64px"
+      }
+    ],
+    "fonts": [
+      {
+        "family": "Barlow",
+        "weights": [
+          400,
+          500,
+          600,
+          700
+        ],
+        "src": "fonts/barlow-*.woff2"
+      },
+      {
+        "family": "Barlow Condensed",
+        "weights": [
+          600,
+          700
+        ],
+        "src": "fonts/barlow-condensed-*.woff2"
+      }
+    ],
+    "inheritedOnly": [
+      "Writing view",
+      "Speaking view"
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button (GO)",
+      "kind": "button",
+      "refersTo": "button-primary-big",
+      "description": "The course action: GO on Home, Next in sessions. Full width, purple.",
+      "html": "<button class=\"ds-btn-primary\">GO <svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12h13M13 6l6 6-6 6\"/></svg></button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:60px;padding:0 18px;border-radius:5px;border:1px solid var(--course,#7B2CBF);background:var(--course,#7B2CBF);color:var(--course-ink,#fff);font-family:\"Barlow Condensed\",\"Barlow\",sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:22px;box-shadow:0 6px 18px rgba(123,44,191,.32);cursor:pointer;transition:transform .12s cubic-bezier(.16,1,.3,1)}.ds-btn-primary:active{transform:scale(.98)}.ds-btn-primary:focus-visible{outline:2px solid var(--course,#7B2CBF);outline-offset:2px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Every non-course action.",
+      "html": "<button class=\"ds-btn\">Quick session (5)</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;min-height:50px;width:100%;padding:0 18px;border-radius:5px;border:1px solid var(--rule,#CDBFA9);background:var(--surface,#fff);color:var(--ink,#1E2118);font-family:\"Barlow\",sans-serif;font-weight:600;font-size:16px;cursor:pointer;transition:transform .12s cubic-bezier(.16,1,.3,1),background-color .15s}.ds-btn:active{transform:scale(.98)}.ds-btn:hover{background:var(--surface-2,#ECEFE6)}.ds-btn:focus-visible{outline:2px solid var(--course,#7B2CBF);outline-offset:2px}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Typed answers and imports; purple caret and focus halo.",
+      "html": "<input class=\"ds-field\" placeholder=\"Type the word\">",
+      "css": ".ds-field{width:100%;min-height:56px;padding:12px 14px;border-radius:5px;border:1px solid var(--rule,#CDBFA9);background:var(--surface,#fff);color:var(--ink,#1E2118);font-family:\"Barlow\",sans-serif;font-size:19px;caret-color:var(--course,#7B2CBF)}.ds-field::placeholder{color:var(--muted,#665A48);opacity:.8}.ds-field:focus{outline:none;border-color:var(--course,#7B2CBF);box-shadow:0 0 0 3px var(--course-soft,#F2E9FB)}"
+    },
+    {
+      "name": "Tab Bar",
+      "kind": "nav",
+      "refersTo": "tab",
+      "description": "Five fixed tabs (three shown); active tab purple with a 3px top bar.",
+      "html": "<nav class=\"ds-tabs\"><button aria-current=\"page\"><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z\"/><path d=\"M9 4v14M15 6v14\"/></svg><span>Home</span></button><button><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 19V5a2 2 0 0 1 2-2h14v14H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14\"/><path d=\"M8 7h8\"/></svg><span>Study</span></button><button><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 21V3\"/><path d=\"M5 4h14v10H5z\"/><path d=\"M5 4l14 10\"/></svg><span>Tests</span></button></nav>",
+      "css": ".ds-tabs{display:grid;grid-template-columns:repeat(3,1fr);background:var(--surface,#fff);border-top:1px solid var(--rule,#CDBFA9)}.ds-tabs button{position:relative;height:64px;background:none;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted,#665A48);font-family:\"Barlow Condensed\",\"Barlow\",sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:14px;cursor:pointer}.ds-tabs button::before{content:\"\";position:absolute;top:-1px;left:22%;right:22%;height:3px;background:var(--course,#7B2CBF);transform:scaleX(0);transition:transform .35s cubic-bezier(.16,1,.3,1)}.ds-tabs button[aria-current=\"page\"]{color:var(--course,#7B2CBF)}.ds-tabs button[aria-current=\"page\"]::before{transform:scaleX(1)}.ds-tabs button:hover{color:var(--ink,#1E2118)}.ds-tabs button:focus-visible{outline:2px solid var(--course,#7B2CBF);outline-offset:-2px}"
+    },
+    {
+      "name": "Level Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Level and count tags in contour caps; open-land variant.",
+      "html": "<span class=\"ds-chip\">B2</span> <span class=\"ds-chip ds-chip-alt\">NEW</span>",
+      "css": ".ds-chip{display:inline-flex;align-items:center;padding:1px 7px;border-radius:4px;border:1px solid var(--rule,#CDBFA9);background:var(--surface,#fff);color:var(--contour,#8C5A2B);font-family:\"Barlow Condensed\",sans-serif;font-weight:700;font-size:14px;letter-spacing:.05em}.ds-chip-alt{border-color:transparent;background:var(--open-bg,#FFF4CC);color:var(--open-ink,#6E5200)}"
+    },
+    {
+      "name": "Note Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Container without shadow; marsh-blue note variant for the Claude loop.",
+      "html": "<div class=\"ds-panel\"><h3>Time for a review with Claude</h3><p>Copy your updates and paste them in the chat.</p></div>",
+      "css": ".ds-panel{background:var(--water-bg,#E3F0F8);border-radius:6px;padding:16px;font-family:\"Barlow\",sans-serif;font-size:15px;color:var(--ink,#1E2118)}.ds-panel h3{margin:0 0 6px;font-size:18px;font-weight:700;color:var(--water-ink,#1D628F)}.ds-panel p{margin:0}"
+    },
+    {
+      "name": "Course Strip",
+      "kind": "custom",
+      "refersTo": "control-done",
+      "description": "Signature: controls joined by the purple line; start, done, none, open and finish.",
+      "html": "<div class=\"ds-course\"><div class=\"ds-leg\"></div><div class=\"ds-ctrl ds-start\"><span class=\"ds-mk\"><svg viewBox=\"0 0 24 24\" width=\"30\" height=\"30\"><path d=\"M12 4 21 19.5H3z\" fill=\"none\" stroke=\"#7B2CBF\" stroke-width=\"3\" stroke-linejoin=\"round\"/></svg></span><span class=\"ds-lb\">Start</span></div><div class=\"ds-ctrl ds-done\"><span class=\"ds-mk\"><svg viewBox=\"0 0 24 24\" width=\"30\" height=\"30\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12.5l4.5 4.5L19 7\"/></svg><b class=\"ds-num\">1</b></span><span class=\"ds-lb\">Review</span></div><div class=\"ds-ctrl ds-none\"><span class=\"ds-mk\"><b class=\"ds-num\">2</b></span><span class=\"ds-lb\">None left</span></div><button class=\"ds-ctrl\"><span class=\"ds-mk\"><b class=\"ds-num\">3</b></span><span class=\"ds-lb\">Test</span></button><div class=\"ds-ctrl ds-finish\"><span class=\"ds-mk\"></span><span class=\"ds-lb\">Finish</span></div></div>",
+      "css": ".ds-course{position:relative;display:flex;justify-content:space-between;align-items:flex-start;padding:10px 16px 0 2px}.ds-course::before{content:\"\";position:absolute;left:24px;right:38px;top:31px;height:3px;background:#7B2CBF;opacity:.25}.ds-leg{position:absolute;left:24px;top:31px;height:3px;width:24%;background:#7B2CBF}.ds-ctrl{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:none;padding:0;min-width:44px;cursor:pointer}.ds-mk{position:relative;width:44px;height:44px;box-sizing:border-box;border-radius:50%;border:3px solid #7B2CBF;background:#F3F5EF;display:flex;align-items:center;justify-content:center;color:#fff}.ds-num{position:absolute;top:-8px;right:-14px;font:700 20px/1 \"Barlow Condensed\",sans-serif;color:#7B2CBF;background:#F3F5EF;padding:0 1px}.ds-done .ds-mk{background:#7B2CBF}.ds-none .ds-mk{border-style:dashed;opacity:.5}.ds-start .ds-mk{border:none}.ds-finish .ds-mk{border:none;box-shadow:inset 0 0 0 3px #7B2CBF,inset 0 0 0 7px #F3F5EF,inset 0 0 0 10px #7B2CBF}.ds-lb{font-family:\"Barlow Condensed\",\"Barlow\",sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:14px;letter-spacing:.05em;color:#1E2118}.ds-none .ds-lb{opacity:.6}button.ds-ctrl:hover .ds-mk{background:#F2E9FB}button.ds-ctrl:focus-visible{outline:2px solid var(--course,#7B2CBF);outline-offset:2px}"
+    },
+    {
+      "name": "Control-description Table",
+      "kind": "custom",
+      "refersTo": "control-description-table",
+      "description": "Signature IOF sheet: number | terrain symbol | description | value.",
+      "html": "<table class=\"ds-cd\"><tr><th>1</th><td class=\"ds-sym\"><i class=\"ds-sw\"></i></td><td>Reviews due</td><td class=\"ds-v\">8</td></tr><tr><th>2</th><td class=\"ds-sym\"><i class=\"ds-sw\"></i></td><td>New words</td><td class=\"ds-v\">12</td></tr></table>",
+      "css": ".ds-cd{width:100%;border-collapse:collapse;background:var(--surface,#fff);border:1.5px solid var(--ink,#1E2118);font-family:\"Barlow\",sans-serif;font-size:16px;color:var(--ink,#1E2118)}.ds-cd th,.ds-cd td{border:1px solid var(--rule,#CDBFA9);padding:9px 10px;text-align:left}.ds-cd th{width:44px;text-align:center;font:700 18px \"Barlow Condensed\",sans-serif}.ds-cd .ds-sym{width:48px;padding:6px}.ds-sw{display:block;width:34px;height:24px;background:var(--open,#FFD24D);border:1px solid rgba(30,33,24,.25)}.ds-cd .ds-v{width:1%;text-align:right;font:700 20px \"Barlow Condensed\",sans-serif;font-variant-numeric:tabular-nums}.ds-cd tr:hover td{background:var(--surface-2,#ECEFE6)}"
+    },
+    {
+      "name": "Question Sheet",
+      "kind": "custom",
+      "refersTo": "question-sheet",
+      "description": "Signature exercise card: ruled header row, prompt with the purple gap underline.",
+      "html": "<div class=\"ds-sheet\"><div class=\"ds-ch\"><span class=\"ds-n\">1</span><span class=\"ds-t\">Choose the word</span><span class=\"ds-lv\">B2</span></div><p class=\"ds-sentence\">I&#39;m <span class=\"ds-slot\">&nbsp;</span> to hear that you&#39;ve got the job!</p></div>",
+      "css": ".ds-sheet{background:var(--surface,#fff);border:1.5px solid var(--ink,#1E2118)}.ds-ch{display:flex;border-bottom:1px solid var(--rule,#CDBFA9);font-family:\"Barlow Condensed\",\"Barlow\",sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;}.ds-ch>*{display:flex;align-items:center;padding:7px 10px}.ds-n{width:44px;justify-content:center;border-right:1px solid var(--rule,#CDBFA9);color:var(--course,#7B2CBF);font-size:19px;letter-spacing:0}.ds-t{flex:1;font-size:15px;color:var(--contour,#8C5A2B)}.ds-lv{border-left:1px solid var(--rule,#CDBFA9);font-size:16px}.ds-sentence{margin:0;padding:22px 18px 24px;font:500 26px/1.45 \"Barlow\",sans-serif;color:var(--ink,#1E2118)}.ds-slot{display:inline-block;min-width:88px;border-bottom:3px solid var(--course,#7B2CBF);line-height:1.1}"
+    },
+    {
+      "name": "Answer Option",
+      "kind": "button",
+      "refersTo": "option",
+      "description": "Lettered option rows; correct = ok wash, wrong = bad wash and struck.",
+      "html": "<div class=\"ds-opts\"><button class=\"ds-opt ds-ok\"><span class=\"ds-ol\">A</span>delighted</button><button class=\"ds-opt\"><span class=\"ds-ol\">B</span>delicious</button><button class=\"ds-opt ds-bad\"><span class=\"ds-ol\">C</span><s>delightful</s></button></div>",
+      "css": ".ds-opts{display:grid;gap:10px}.ds-opt{display:flex;align-items:center;gap:12px;min-height:58px;padding:10px 14px;border-radius:5px;border:1px solid var(--rule,#CDBFA9);background:var(--surface,#fff);color:var(--ink,#1E2118);font:500 18px \"Barlow\",sans-serif;text-align:left;cursor:pointer;transition:background-color .15s,border-color .15s}.ds-ol{flex:none;width:30px;height:30px;box-sizing:border-box;border-radius:50%;border:2px solid var(--rule,#CDBFA9);display:inline-flex;align-items:center;justify-content:center;font:700 16px \"Barlow Condensed\",sans-serif;color:var(--muted,#665A48)}.ds-opt:hover{border-color:var(--course,#7B2CBF);background:var(--course-soft,#F2E9FB)}.ds-opt:focus-visible{outline:2px solid var(--course,#7B2CBF);outline-offset:2px}.ds-ok{background:var(--ok-bg,#EDF1DD);border-color:var(--ok,#47601A);color:var(--ok,#47601A);font-weight:700}.ds-ok .ds-ol{background:var(--ok,#47601A);border-color:var(--ok,#47601A);color:#fff}.ds-bad{background:var(--bad-bg,#FBE6E1);border-color:var(--bad,#B5341F);color:var(--bad,#B5341F)}.ds-bad .ds-ol{background:var(--bad,#B5341F);border-color:var(--bad,#B5341F);color:#fff}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Day's Course",
+    "overview": "Lexi is drawn as an ISOM orienteering map and its IOF control-description sheet. Studying is running a course: today's work is laid out as numbered controls joined by a purple line, and each exercise answered punches a control. The map supplies everything else. Surfaces are runnable-forest white, sections carry terrain inks (open-land yellow, thicket green, rough, marsh blue, contour brown, rock grey), and data is set in ruled sheets with condensed caps headers, the way a control-description card is printed.\n\nThe system is dense, ruled and flat. Depth comes from rules and ink weight (a 1.5px ink border marks a sheet, a 1px rule marks a row), not from soft shadows or rounded white cards. Type is one family in two widths: Barlow Condensed caps for display, numerals and labels; Barlow for reading, with tabular figures everywhere. The world ships in a light map (paper) and a dark map (night run) with the same roles in both.\n\nIt refuses the category default of study apps: rounded white cards, mascots, confetti and a daily-goal ring. Purple is never decoration; it is the course.",
+    "keyCharacteristics": [
+      "Course purple marks the route and your next move, nothing else.",
+      "One skill, one terrain symbol, on every screen.",
+      "Ruled sheets (1.5px ink frame, 1px rule cells) in place of cards for data and exercises.",
+      "Condensed caps for labels and numerals, Barlow for prose, tabular figures throughout.",
+      "Square-ish corners (5–6px), sheets fully square; no ambient card shadows.",
+      "Motion is the line drawing to the next control; all of it is off under reduced motion."
+    ],
+    "rules": [
+      {
+        "name": "The Overprint Rule",
+        "body": "Course purple marks the course and the user's own move on it: the line, controls, control numbers, primary action, active tab, selection, focus and the gap to fill. It never marks a section, a category, a chart series or decoration. Toggles that are not \"the course\" use ink (segmented, chips) or thicket-ink (switches).",
+        "section": "colors"
+      },
+      {
+        "name": "The One Key Rule",
+        "body": "Each skill has exactly one terrain symbol across the app: vocabulary = open land, grammar and Use of English = thicket, reading = rough, listening = marsh/water, writing = contour, speaking = rock. A section spanning several skills (Study, Tests, Write, Progress on Home's map legend) uses its tab icon, never a swatch.",
+        "section": "colors"
+      },
+      {
+        "name": "The Verdict Inks Rule",
+        "body": "Green, amber and red mean correct, near and wrong, and nothing else.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Widths Rule",
+        "body": "Condensed caps label and count; normal width explains. Never set a paragraph in Condensed, never set a number in a proportional figure.",
+        "section": "typography"
+      },
+      {
+        "name": "The Ruled Not Raised Rule",
+        "body": "If a container needs separation, give it a rule or an ink frame, not a shadow. The three shadows above are the whole vocabulary.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** keep course purple to the course and the user's move: line, controls, numbers, primary button, active tab, gap underline, selection, focus.",
+      "**Do** tag every single-skill surface with its terrain symbol from the one key, and use tab icons for multi-skill sections.",
+      "**Do** set data and exercises as ruled sheets: 1.5px ink frame, 1px rule cells, square corners, Condensed caps header cells in contour brown.",
+      "**Do** use Condensed caps for labels and every number, with tabular figures.",
+      "**Do** render a leg with nothing to do as a dashed `none` control, never as punched.",
+      "**Do** define every new colour as a light/dark token pair and check it under both `prefers-color-scheme` and the `data-theme` override.",
+      "**Do** gate every new animation behind `prefers-reduced-motion`."
+    ],
+    "donts": [
+      "**Don't** use purple for sections, categories, chart series, badges or decoration.",
+      "**Don't** give two skills the same swatch or one skill two swatches.",
+      "**Don't** put soft shadows on panels or cards; separation is a rule or an ink frame. GO, the pinned footer and toasts are the only shadows.",
+      "**Don't** round past 6px or build rounded white cards, mascots, confetti or a daily-goal ring.",
+      "**Don't** add texture outside the header band and the terrain swatches.",
+      "**Don't** set prose in Barlow Condensed."
+    ]
+  }
+}

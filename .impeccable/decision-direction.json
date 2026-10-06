@@ -1,0 +1,131 @@
+{
+  "title": "Lexi: elige el mundo visual",
+  "question": "La tirada asignó \"Correo aéreo\". Quédatela, elige una alternativa o vuelve a tirar.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Correo aéreo",
+      "kicker": "THE ROLL",
+      "lineage": "Aerogramas, sobres par avion y el pen-friend con el que se practicaba inglés por carta",
+      "thesis": "Estudiar es cartearte con tu tutor: lo que envías a Claude sale con franja de correo aéreo y cada día estudiado queda matasellado.",
+      "palette": ["#DCE5F0", "#F6F8FB", "#14213D", "#C8243A", "#1F4FA3", "#2F7D5B"],
+      "materials": ["papel cebolla azul", "franja roja y azul", "matasellos circular", "sello dentado"],
+      "viewport": "Inicio: arriba, la sesión del día como aerograma con franja y un botón enorme al alcance del pulgar; debajo, la semana como fila de matasellos; la nota de Claude llega como sobre. Barra inferior de 5 intacta.",
+      "risk": "Si se llena de sellos y texturas se vuelve disfraz: el mundo solo aporta color, tipo, densidad y el matasellos.",
+      "raised": [
+        { "from": "challenger-feed", "raise": "Cada ejercicio ocupa la pantalla entera y el siguiente ya está cargado: la sesión es una pila, una carta cada vez." },
+        { "from": "challenger-flap", "raise": "Nada se recoloca durante la sesión: el feedback aparece siempre en el mismo hueco fijo, bajo el pulgar." },
+        { "from": "challenger-pass", "raise": "Lo que llega en un pack de Claude se queda marcado como correo sin abrir hasta que lo abres." },
+        { "from": "challenger-timetable", "raise": "Jerarquía por peso, mayúsculas y filete, con solo tres tamaños de letra por pantalla." },
+        { "from": "challenger-annual", "raise": "Una sola familia tipográfica de titular a pie de página; el carácter lo pone el matasellos, no la mezcla de fuentes." }
+      ]
+    },
+    {
+      "id": "model-pick",
+      "label": "Cuaderno y boli rojo",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "La libreta de cuadrícula del colegio y la academia, el Bic azul y la corrección en rojo",
+      "thesis": "Escribes en azul y la corrección llega en rojo: Claude es el profesor que te devuelve el cuaderno.",
+      "palette": ["#FBFCFE", "#CFDDEE", "#1A3FA0", "#D7262E", "#FFE14D", "#1B1F2A"],
+      "materials": ["cuadrícula de 5 mm", "tinta de bolígrafo", "fosforito", "margen rojo"],
+      "viewport": "Inicio como la página de hoy del cuaderno: fecha arriba a la derecha, la tarea del día subrayada con fosforito y el botón de empezar; el progreso como marcas en el margen.",
+      "risk": "Es la dirección más familiar del lote: la cuadrícula y el boli tienden a disfraz escolar y rozan lo infantil."
+    },
+    {
+      "id": "challenger-signage",
+      "label": "Señalética de aeropuerto",
+      "verdict": "competitive",
+      "lineage": "Paneles amarillos de wayfinding, Schiphol",
+      "thesis": "Cada pantalla te dice solo la siguiente decisión, en grande, sobre amarillo.",
+      "palette": ["#FFCC00", "#111111", "#FFFFFF", "#3A3A3A"],
+      "materials": ["panel amarillo", "pictograma blanco sobre negro", "flechas a canto"],
+      "viewport": "Inicio reducido a una banda: \"12 repasos · 4 nuevas → Empezar\", con el número monumental.",
+      "case": "Encaja muy bien con el uso a una mano (una decisión por pantalla); pierde en identificación: no tiene nada del examen ni de la relación con Claude.",
+      "risk": "El amarillo y negro puede sentirse frío o de obra, justo lo que no quieres; el modo oscuro es delicado.",
+      "hero": "https://impeccable.style/worlds/cards/wayfinding-cartography-signage-terminal-yellow-wayfinding-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/wayfinding-cartography-signage-terminal-yellow-wayfinding.webp"
+    },
+    {
+      "id": "challenger-pass",
+      "label": "Tarjeta de embarque y panel de salidas",
+      "verdict": "declined",
+      "lineage": "Boarding pass y gate board",
+      "thesis": "Los repasos como vuelos ordenados por hora de salida.",
+      "palette": ["#FFFFFF", "#0E1A2B", "#E8532F", "#F2F2EE"],
+      "materials": ["segmentos troquelados", "cifras tabulares"],
+      "viewport": "Panel de repasos ordenado por vencimiento.",
+      "case": "Pierde en identificación y en claridad frente al correo: comparte mundo (viaje) pero sin la carta y la escritura.",
+      "kept": "Un cambio se queda iluminado hasta que lo has visto.",
+      "risk": "Frío, de herramienta.",
+      "hero": "https://impeccable.style/worlds/cards/vernacular-ephemera-boarding-pass-and-gate-board-hero.webp"
+    },
+    {
+      "id": "challenger-feed",
+      "label": "Feed vertical a pantalla completa",
+      "verdict": "declined",
+      "lineage": "Vídeo vertical, un elemento por pantalla",
+      "thesis": "Una cosa ocupa toda la pantalla y la siguiente está a un gesto.",
+      "palette": ["#000000", "#FFFFFF", "#FE2C55"],
+      "materials": ["pantalla completa", "carril de iconos"],
+      "viewport": "Sesión como feed con snap vertical.",
+      "case": "Sirve a la sesión, pero no a gramática, tests ni writing; genérico.",
+      "kept": "Un elemento a pantalla completa, el siguiente ya cargado.",
+      "risk": "Genérico y adictivo en el mal sentido.",
+      "hero": "https://impeccable.style/worlds/cards/pop-culture-shelf-vertical-video-feed-surface-hero.webp"
+    },
+    {
+      "id": "challenger-flap",
+      "label": "Panel split-flap de estación",
+      "verdict": "declined",
+      "lineage": "Tableros de salidas de tren",
+      "thesis": "Las filas cambian, las columnas nunca se mueven.",
+      "palette": ["#111111", "#F2F2F2", "#F5A623", "#B33A3A"],
+      "materials": ["paletas negras", "acero cepillado"],
+      "viewport": "Repasos como tablero de salidas.",
+      "case": "Disfraz de instrumento; frío.",
+      "kept": "El diseño no se mueve: solo cambia el contenido de sus celdas.",
+      "risk": "Disfraz.",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-split-flap-concourse-hero.webp"
+    },
+    {
+      "id": "challenger-timetable",
+      "label": "Horario de bolsillo sobre mesa de luz",
+      "verdict": "declined",
+      "lineage": "Horarios de aerolínea de 1971",
+      "thesis": "Un solo tamaño de letra; el rango lo dan peso, caja y filete.",
+      "palette": ["#D9A21B", "#1F2328", "#EFE6CC", "#C8361E", "#1F6B45"],
+      "materials": ["cristal tintado", "cartulina dorada"],
+      "viewport": "Raíl lateral de diapositivas inclinadas.",
+      "case": "La inclinación y el tamaño único dañan la lectura en móvil.",
+      "kept": "Jerarquía por peso y caja, no por tamaño.",
+      "risk": "Ilegible en pasajes largos.",
+      "hero": "https://impeccable.style/worlds/cards/rw-timetable-slide-rack-hero.webp"
+    },
+    {
+      "id": "challenger-annual",
+      "label": "Anuario de diseño",
+      "verdict": "declined",
+      "lineage": "Láminas de anuario con marcas de registro",
+      "thesis": "Papel casi blanco y mobiliario de imprenta.",
+      "palette": ["#F5F4F6", "#16181A", "#DCDDF3", "#C9C7C4"],
+      "materials": ["cruces de registro", "filetes de 1 px"],
+      "viewport": "Láminas en rejilla de 12 columnas.",
+      "case": "Pensado para escritorio y galería; frío para estudiar.",
+      "kept": "Una sola familia tipográfica en todo.",
+      "risk": "Frío, corporativo.",
+      "hero": "https://impeccable.style/worlds/cards/design-annual-s-plate-section-hero.webp"
+    }
+  ],
+  "reroll": { "registers": ["safer", "bolder"] },
+  "buildPath": { "value": "code" },
+  "canon": true,
+  "canonCard": {
+    "label": "El estándar de la categoría",
+    "thesis": "Lo que hacen Duolingo, Anki o Babbel, ejecutado con oficio.",
+    "palette": ["#FFFFFF", "#111827", "#4F46E5", "#22C55E"],
+    "materials": ["tarjetas blancas redondeadas", "color primario vivo", "ilustración plana"],
+    "viewport": "Inicio con anillo de objetivo diario, racha y tarjetas de sección.",
+    "risk": "Indistinguible de cualquier app de idiomas, justo lo \"genérico\" que no quieres."
+  },
+  "steer": true
+}

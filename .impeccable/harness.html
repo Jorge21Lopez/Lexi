@@ -1,0 +1,12 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Lexi phone harness</title>
+<style>body{margin:0;background:#888;display:flex;gap:16px;padding:8px;align-items:flex-start}iframe{width:390px;height:844px;border:0;background:#fff;flex:none}</style>
+<iframe id="a" src="../index.html"></iframe>
+<iframe id="b" src="../index.html"></iframe>
+<script>
+// Dev-only: ?a=<js>&b=<js> runs a script inside each phone frame after load
+const q=new URLSearchParams(location.search);
+for(const id of ['a','b']){ const f=document.getElementById(id);
+  f.addEventListener('load',()=>{ try{ localStorage.removeItem('lexi:v1'); f.contentWindow.eval("S=defaultState();"+(q.get(id)||'')); }catch(e){ console.error(e); } }); }
+</script>

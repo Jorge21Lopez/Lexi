@@ -1,0 +1,130 @@
+{
+  "title": "Lexi: elige el mundo visual (nueva tirada)",
+  "question": "Nueva tirada: \"Diccionario de learner\". Quédatela, elige una alternativa o vuelve a tirar.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Diccionario de learner",
+      "kicker": "THE ROLL",
+      "lineage": "Oxford / Cambridge Learner's Dictionary: lemas en azul, niveles B1/B2 junto a cada palabra, pestañas A–Z en el canto",
+      "thesis": "Lexi es tu diccionario personal: cada palabra que aprendes se convierte en una entrada, con su nivel, su ejemplo y su estado.",
+      "palette": ["#0B2A5B", "#FBFBF8", "#1F5FBF", "#E2A81B", "#1C1E24", "#C7372F"],
+      "materials": ["papel biblia blanco", "tapa de tela azul profundo", "lema en negrita azul", "pestaña de índice en el canto"],
+      "viewport": "Inicio: cabecera y barra inferior en azul tapa; en la página blanca, el encabezado corrido de hoy (\"cancel — convenient\") y la sesión con un botón grande; debajo, tus últimas entradas aprendidas como mini-lemas con su nivel.",
+      "risk": "Puede volverse una página de texto densa; el diccionario aporta tipo, color y la entrada, no columnas de letra pequeña.",
+      "raised": [
+        { "from": "challenger-folio", "raise": "Cada entrada lleva la misma tira fija de 4 estados (nueva → aprendiendo → sabida → dominada), siempre en el mismo sitio y a la misma escala." },
+        { "from": "challenger-orienteering", "raise": "Un único color de acento reservado solo para lo siguiente que toca hacer; nada más lo usa." },
+        { "from": "challenger-ikeda", "raise": "Todas las cifras (racha, aciertos, cronómetro) en numerales tabulares que no bailan al cambiar." },
+        { "from": "challenger-emigre", "raise": "Una sola familia con escalones de tamaño estrictos, del lema grande a la letra de ejemplo." },
+        { "from": "challenger-mascots", "raise": "Cada palabra tiene su ficha fija con el mismo mobiliario: lema, nivel, ejemplo, explicación, estado." }
+      ]
+    },
+    {
+      "id": "model-pick",
+      "label": "Bolsilibro Penguin",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "Las bandas de color de Penguin y Pelican (rejilla de tres franjas)",
+      "thesis": "Cada sección es una colección con su color: vocabulario en naranja, gramática en azul Pelican, tests en verde.",
+      "palette": ["#F26B21", "#1D5DA8", "#2E7D4F", "#FFFFFF", "#1A1A1A"],
+      "materials": ["franja de color de colección", "banda blanca central", "logo en óvalo"],
+      "viewport": "Inicio con tres bandas horizontales: arriba la colección del día en su color, en el centro la sesión en blanco, abajo la racha.",
+      "risk": "Es la más familiar de este lote: el look de cubierta editorial clásica es muy reconocible y puede parecer de librería."
+    },
+    {
+      "id": "challenger-jcard",
+      "label": "Carátula de cinta casete",
+      "verdict": "competitive",
+      "lineage": "J-card de mixtape: cara A / cara B, bolígrafo sobre pauta, tiempos al margen",
+      "thesis": "Cada sesión y cada simulacro es una cara de cinta: pistas numeradas con su tiempo, que no pueden pasarse de duración.",
+      "palette": ["#FFFFFF", "#1F3FAF", "#9AA0A6", "#D52B1E"],
+      "materials": ["pauta impresa", "boli azul", "franja de marca roja"],
+      "viewport": "Inicio como la cara A de hoy: lista de ejercicios con tiempos a la derecha; los simulacros son cara A (Reading) y cara B (Listening).",
+      "case": "Gana en identificación (cintas, bolígrafo, tiempos del examen); pierde en claridad: el tono manuscrito puede sentirse infantil y no sirve bien a la gramática.",
+      "risk": "Lo manuscrito y nostálgico roza lo infantil, que es justo lo que no quieres.",
+      "hero": "https://impeccable.style/worlds/cards/vernacular-ephemera-cassette-j-card-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/vernacular-ephemera-cassette-j-card.webp"
+    },
+    {
+      "id": "challenger-orienteering",
+      "label": "Mapa de orientación",
+      "verdict": "declined",
+      "lineage": "Mapas ISOM: terreno fijo, recorrido en morado encima",
+      "thesis": "El camino B1 → B2 como recorrido de control en control.",
+      "palette": ["#FFFFFF", "#9C4A1A", "#F6D44B", "#A23CA8", "#5BA3D9"],
+      "materials": ["curvas de nivel", "círculos de control"],
+      "viewport": "Las partes del examen como controles numerados.",
+      "case": "Precioso pero ajeno: nadie estudia inglés pensando en orientación.",
+      "kept": "Un color reservado solo para el tramo activo.",
+      "risk": "Disfraz de mapa.",
+      "hero": "https://impeccable.style/worlds/cards/notation-diagram-systems-orienteering-map-hero.webp"
+    },
+    {
+      "id": "challenger-folio",
+      "label": "Folio botánico por estaciones",
+      "verdict": "declined",
+      "lineage": "Láminas de una planta de semilla a fruto",
+      "thesis": "Cada palabra crece de semilla a fruto.",
+      "palette": ["#F3EEDF", "#2F5D3A", "#C0392B", "#1B1B1B"],
+      "materials": ["láminas a escala fija", "filetes sepia"],
+      "viewport": "Palabras como láminas por estado.",
+      "case": "Metáfora bonita, pero crema y cursivas: el tópico de siempre.",
+      "kept": "Mismos estados, misma escala, mismo sitio.",
+      "risk": "Cursi.",
+      "hero": "https://impeccable.style/worlds/cards/editorial-sequence-montage-botanical-folio-season-hero.webp"
+    },
+    {
+      "id": "challenger-ikeda",
+      "label": "Campo de datos en blanco y negro",
+      "verdict": "declined",
+      "lineage": "Ryoji Ikeda, datamatics",
+      "thesis": "Códigos de barras y cifras densas.",
+      "palette": ["#000000", "#FFFFFF"],
+      "materials": ["barras", "monoespaciada"],
+      "viewport": "Estadísticas como campo de barras.",
+      "case": "Frío y agresivo para estudiar a diario.",
+      "kept": "Numerales tabulares y densidad honesta.",
+      "risk": "Frío.",
+      "hero": "https://impeccable.style/worlds/cards/ikeda-datamatics-hero.webp"
+    },
+    {
+      "id": "challenger-emigre",
+      "label": "Especimen bitmap Emigre",
+      "verdict": "declined",
+      "lineage": "Tipografía pixelada de los 80",
+      "thesis": "Letras de píxel a escala de cartel.",
+      "palette": ["#FFFFFF", "#111111", "#FF3B00"],
+      "materials": ["píxel", "trama"],
+      "viewport": "Titulares pixelados.",
+      "case": "Pura estética, sin relación con el examen.",
+      "kept": "Una familia con escalones de tamaño estrictos.",
+      "risk": "Ilegible en lectura larga.",
+      "hero": "https://impeccable.style/worlds/cards/emigre-bitmap-specimen-hero.webp"
+    },
+    {
+      "id": "challenger-mascots",
+      "label": "Catálogo de mascotas",
+      "verdict": "declined",
+      "lineage": "Catálogos de personajes kawaii",
+      "thesis": "Personajes redondos con ficha.",
+      "palette": ["#FCE4EC", "#E1F5FE", "#FFF9C4", "#FF5C8A"],
+      "materials": ["pastel", "keyline blanco"],
+      "viewport": "Palabras como personajes.",
+      "case": "Infantil, descartado por tu límite.",
+      "kept": "Cada elemento con su ficha fija de mobiliario.",
+      "risk": "Infantil."
+    }
+  ],
+  "reroll": { "registers": ["safer", "bolder"] },
+  "buildPath": { "value": "code" },
+  "canon": true,
+  "canonCard": {
+    "label": "El estándar de la categoría",
+    "thesis": "Lo que hacen Duolingo, Anki o Babbel, ejecutado con oficio.",
+    "palette": ["#FFFFFF", "#111827", "#4F46E5", "#22C55E"],
+    "materials": ["tarjetas blancas redondeadas", "color primario vivo", "ilustración plana"],
+    "viewport": "Inicio con anillo de objetivo diario, racha y tarjetas de sección.",
+    "risk": "Indistinguible de cualquier app de idiomas, justo lo \"genérico\" que no quieres."
+  },
+  "steer": true
+}

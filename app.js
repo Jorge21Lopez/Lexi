@@ -1,6 +1,6 @@
 'use strict';
 /* Lexi: English for PET (B1) and B2 First. Everything is stored locally on the device. */
-const APP_VERSION = '4.0.0';
+const APP_VERSION = '5.0.0';
 const KEY = 'lexi:v1';
 const DAY = 864e5;
 
@@ -24,7 +24,7 @@ const PARTS = { reading:6, listening:4, uoe:4 };
 /* ---------- State ---------- */
 function defaultState(){
   return { v:2, createdAt:Date.now(), srs:{}, attempts:[], writings:[], packs:[], exports:[], lastExportAt:0,
-    daily:{}, session:null, messages:[], settings:{ sessionSize:10, newPerDay:12, lang:'en' },
+    daily:{}, session:null, messages:[], settings:{ sessionSize:10, newPerDay:12, lang:'en', theme:'auto' },
     tests:[], run:null, wmock:null, read:{}, irr:{}, speak:{}, phr:{}, rawNotes:[] };
 }
 function load(){
@@ -96,6 +96,24 @@ let view='home', current=null, editing=null, exportCache=null, pageRef=null, res
 /* ---------- Utilities ---------- */
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ICONS = {
+  back:'<path d="M15 5l-7 7 7 7"/>', close:'<path d="M6 6l12 12M18 6 6 18"/>', chev:'<path d="M9 5l7 7-7 7"/>',
+  play:'<path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/>', stop:'<rect x="6.5" y="6.5" width="11" height="11" rx="1" fill="currentColor"/>',
+  rec:'<circle cx="12" cy="12" r="6" fill="currentColor"/>', check:'<path d="M5 12.5l4.5 4.5L19 7"/>', x:'<path d="M7 7l10 10M17 7 7 17"/>',
+  speaker:'<path d="M4 9.5v5h3.5L12 18V6L7.5 9.5z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>',
+  go:'<path d="M5 12h13M13 6l6 6-6 6"/>', mail:'<path d="M3.5 6h17v12h-17z"/><path d="M3.5 7l8.5 6 8.5-6"/>',
+  book:'<path d="M4 19V5a2 2 0 0 1 2-2h14v14H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14"/><path d="M8 7h8"/>', pen:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>', chart:'<path d="M4 20h16"/><path d="M7 16v-5M12 16V7M17 16v-8"/>',
+  flag:'<path d="M5 21V3"/><path d="M5 4h14v10H5z"/><path d="M5 4l14 10"/>', clock:'<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>'
+};
+const ic = (n, cls='') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
+const BRAND = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 21.5 19.5h-19z" fill="none" stroke="var(--course)" stroke-width="2.6" stroke-linejoin="round"/></svg>';
+// One ISOM symbol per skill, the same on every screen (sections spanning several skills get none)
+const SKILL_SW = { vocab:'open', grammar:'thicket', uoe:'thicket', reading:'rough', listening:'water', writing:'contour', speaking:'rock' };
+function skillOfPage(g){ if(g.section==='writing') return 'writing'; if(g.section==='speaking') return 'speaking';
+  const t=(g.title_en||g.title||'').toLowerCase(); for(const k of ['reading','listening','writing','speaking']) if(t.startsWith(k)||t.includes(' '+k)) return k; return null; }
+const reduced = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+function buzz(p){ try{ if(navigator.vibrate && !reduced()) navigator.vibrate(p); }catch(e){} }
+function applyTheme(){ const t=S.settings.theme; if(t==='light'||t==='dark') document.documentElement.dataset.theme=t; else delete document.documentElement.dataset.theme; }
 function dayKey(t = Date.now()){ const d = new Date(t); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function startOfDay(t){ const d = new Date(t); d.setHours(0,0,0,0); return d.getTime(); }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
@@ -216,7 +234,7 @@ function correctText(item){ return item.type==='mcq' ? item.answer : item.type==
 function startSession(size, extra){
   const q=buildQueue(size, extra);
   if(!q.length){ toast(T('No exercises available right now.','No hay ejercicios disponibles ahora mismo.')); return; }
-  S.session={ q, i:0, retried:[], results:[], started:Date.now(), answered:-1 }; current=null; save(); go('session');
+  S.session={ q, i:0, retried:[], results:[], started:Date.now(), answered:-1 }; current=null; trackPos=0; save(); go('session');
 }
 function check(ans){
   const ss=S.session; if(!current || current.checked || !ss) return;
@@ -228,69 +246,125 @@ function check(ans){
   ss.results.push({ id:item.id, r:res });
   if(res==='bad' && !ss.retried.includes(item.id)){ ss.retried.push(item.id); ss.q.splice(Math.min(ss.q.length, ss.i+4), 0, item.id); }
   exportCache=null; save(); render();
+  if(res==='bad'){ $('.card')?.classList.add('shake'); buzz([30,40,30]); } else buzz(12);
   if(item.type!=='mcq') setTimeout(()=>$('#next')?.focus(), 50);
 }
 function next(){ if(!S.session) return; S.session.i++; current=null; save(); render(); }
 
 /* ---------- Rendering ---------- */
-function go(v){ view=v; stopSpeech(); window.scrollTo(0,0); render(); }
+const FOCUS = ['session','run','wmock'];
+function go(v){
+  const swap=()=>{ view=v; stopSpeech(); window.scrollTo(0,0); render(); };
+  if(document.startViewTransition && !reduced() && v!==view) document.startViewTransition(swap); else swap();
+}
 const TAB_OF = { templates:'study', note:'study', home:'home', session:'home', progress:'home', study:'study', page:'study', speak:'study', tests:'tests', run:'tests', result:'tests', writing:'writing', write:'writing', wmock:'writing', data:'data' };
 function render(){
   document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-current', b.dataset.go===TAB_OF[view] ? 'page' : 'false'));
-  $('#tabs').classList.toggle('hidden', ['session','run','wmock'].includes(view));
+  $('#tabs').classList.toggle('hidden', FOCUS.includes(view));
+  $('#app').classList.toggle('focus', FOCUS.includes(view));
   const fn={ home:renderHome, session:renderSession, progress:renderProgress, study:renderStudy, page:renderPage, speak:renderSpeak,
     tests:renderTests, run:renderRun, templates:renderTemplates, note:renderNote, result:renderResult, writing:renderWriting, write:renderWrite, wmock:renderWMock, data:renderData }[view] || renderHome;
   $('#app').innerHTML = fn();
   afterRender();
 }
 function header(){
-  return `<div class="top"><div class="brand">Lexi<i></i></div><div class="row"><span class="muted small">${esc(new Date().toLocaleDateString(LOCALE(),{weekday:'long', day:'numeric', month:'long'}))}</span>
+  return `<div class="top"><div class="brand">${BRAND}Lexi</div><div class="row"><span class="date">${esc(new Date().toLocaleDateString(LOCALE(),{weekday:'short', day:'numeric', month:'short'}))}</span>
     <button class="langbtn" data-act="togglelang" aria-label="${T('Change language','Cambiar idioma')}">${LANG==='en'?'EN':'ES'}</button></div></div>`;
 }
-function backBar(title, to){ return `<div class="sess-top"><button class="icon-btn" data-go="${to}" aria-label="${T('Back','Volver')}">←</button><b style="flex:1">${esc(title)}</b></div>`; }
+function backBar(title, to){ return `<div class="sess-top"><button class="icon-btn" data-go="${to}" aria-label="${T('Back','Volver')}">${ic('back')}</button><b style="flex:1">${esc(title)}</b></div>`; }
+
+/* ---------- The course: today's plan drawn as controls on a purple line ---------- */
+// Legs animate from data-from to data-to after each render (see afterRender)
+function legHTML(from, to){ return `<div class="leg" data-to="${to}" style="transform:scaleX(${from})"></div>`; }
+function ctrlHTML(o){
+  const tag=o.attr?'button':'div';
+  return `<${tag} class="ctrl ${o.cls||''}${o.state?' '+o.state:''}" ${o.attr||''} ${o.aria?`aria-label="${esc(o.aria)}"`:''}><span class="mk">${o.mark||''}${o.num?`<span class="num">${o.num}</span>`:''}</span><span class="lb">${o.label}</span></${tag}>`;
+}
+function suggestTest(){
+  const scored=[...GRAMMAR.values()].map(g=>({ g, p:bestOf('topic',g.id) }));
+  const pick=scored.find(x=>x.p===null) || scored.filter(x=>x.p<80).sort((a,b)=>a.p-b.p)[0];
+  return pick ? { attr:`data-topic="${esc(pick.g.id)}"`, label:L(pick.g,'title') } : { attr:'data-go="tests"', label:T('Any test','Cualquier test') };
+}
+function weekHTML(){
+  const out=[]; for(let k=6;k>=0;k--){ const t=Date.now()-k*DAY, key=dayKey(t);
+    out.push(`<div class="${activeDay(key)?'on':''}${k===0?' now':''}"><i></i>${esc(new Date(t).toLocaleDateString(LOCALE(),{weekday:'narrow'}))}</div>`); }
+  return `<div class="week" aria-label="${T('Days studied this week','Días estudiados esta semana')}">${out.join('')}</div>`;
+}
 
 /* ---------- Home ---------- */
 function renderHome(){
-  const c=counts(), ss=S.session, size=S.settings.sessionSize;
+  const c=counts(), ss=S.session, size=S.settings.sessionSize, d=today();
   const pending=ss && ss.i<ss.q.length;
   const unread=S.messages.filter(m=>!m.read).slice(-1)[0];
   const since=S.attempts.filter(a=>a.t>S.lastExportAt).length + S.tests.filter(t=>t.at>S.lastExportAt).length*5;
   const daysSinceExport=S.lastExportAt ? Math.floor((Date.now()-S.lastExportAt)/DAY) : null;
-  let hero;
-  if(pending) hero=`<h1>${T('You have a session in progress','Tienes una sesión a medias')}</h1><p class="muted">${T(`You're on exercise ${ss.i+1} of ${ss.q.length}.`,`Vas por el ejercicio ${ss.i+1} de ${ss.q.length}.`)}</p>
-      <button class="btn primary big block" data-act="resume">${T('Continue session','Continuar sesión')}</button>
-      <button class="btn ghost block" data-act="discard">${T('Discard and start a new one','Descartar y empezar otra')}</button>`;
-  else if(c.due+c.newAvail>0) hero=`<h1>${T(`${c.due} ${c.due===1?'review':'reviews'} and ${c.newAvail} new ${c.newAvail===1?'word':'words'} for today`,`${c.due} ${c.due===1?'repaso':'repasos'} y ${c.newAvail} ${c.newAvail===1?'palabra nueva':'palabras nuevas'} para hoy`)}</h1>
-      <p class="muted">${T(`Vocabulary sessions of ${size} exercises. You can stop halfway whenever you like.`,`Sesiones de ${size} ejercicios de vocabulario. Puedes dejarlas a medias cuando quieras.`)}</p>
-      <button class="btn primary big block" data-act="start">${T('Start session','Empezar sesión')}</button><div class="gap"></div>
-      <button class="btn block" data-act="quick">${T('Quick session (5)','Sesión rápida de 5')}</button>`;
-  else hero=`<h1>${T('Vocabulary up to date','Vocabulario al día')}</h1><p class="muted">${T('Reviews come back when they are due. Meanwhile, study some grammar or do a test.','Los repasos vuelven cuando toca. Mientras, puedes estudiar gramática o hacer un test.')}</p>
-      <button class="btn primary big block" data-act="extra" ${Object.keys(S.srs).length?'':'disabled'}>${T('Extra vocabulary review','Repaso extra de vocabulario')}</button>`;
+  const sug=suggestTest();
+  // A leg is 'done' only when something was really done today; nothing to do = 'none' (off today's course)
+  const revState = pending || c.due>0 ? 'open' : (d.n-d.nw)>0 ? 'done' : 'none';
+  const newState = pending || c.newAvail>0 ? 'open' : d.nw>0 ? 'done' : 'none';
+  const testState = (d.t||0)>0 ? 'done' : 'open';
+  const legs=[revState,newState,testState], closed=legs.every(x=>x!=='open'), all=closed && activeDay(dayKey());
+  let reach=0; for(const x of legs){ if(x==='open') break; reach++; }
+  if(!legs.slice(0,reach).includes('done')) reach=0;
+  const revDone=revState!=='open', newDone=newState!=='open', testDone=testState==='done';
+  const tick=st=>st==='done'?ic('check'):'';
+  const startAct=`data-act="${pending?'resume':'start'}"`;
+  const course=`<div class="course">${legHTML(0, all?1:reach/4)}
+      ${ctrlHTML({ cls:'start', mark:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 21 19.5H3z" fill="none" stroke="var(--course)" stroke-width="3" stroke-linejoin="round"/></svg>', label:T('Start','Salida') })}
+      ${ctrlHTML({ state:revState, num:1, mark:tick(revState), label:revState==='none'?T('None due','Sin repasos'):T('Review','Repaso'), attr:revState==='open'?startAct:'' })}
+      ${ctrlHTML({ state:newState, num:2, mark:tick(newState), label:newState==='none'?T('None left','Sin nuevas'):T('New','Nuevas'), attr:newState==='open'?startAct:'' })}
+      ${ctrlHTML({ state:testState, num:3, mark:tick(testState), label:'Test', attr:testState==='open'?sug.attr:'' })}
+      ${ctrlHTML({ cls:'finish', state:all?'done':'', label:T('Finish','Meta') })}</div>`;
+  const table=`<table class="cd"><tbody>
+      <tr><th>1</th><td class="sym"><i class="sw open"></i></td><td>${T('Reviews due','Repasos pendientes')}</td><td class="v">${c.due||'–'}</td></tr>
+      <tr><th>2</th><td class="sym"><i class="sw open"></i></td><td>${T('New words','Palabras nuevas')}</td><td class="v">${c.newAvail||'–'}</td></tr>
+      <tr><th>3</th><td class="sym">${ic('flag')}</td><td>${esc(sug.label)}</td><td class="v">${testDone?ic('check','sm'):'Test'}</td></tr></tbody></table>`;
+  let title, lead, go;
+  if(pending){
+    title=T('Session in progress','Sesión a medias'); lead=T(`You're on exercise ${ss.i+1} of ${ss.q.length}.`,`Vas por el ejercicio ${ss.i+1} de ${ss.q.length}.`);
+    go=`<button class="btn primary big block" data-act="resume">${T('Continue','Continuar')} ${ic('go')}</button><button class="btn ghost block" data-act="discard">${T('Discard and start a new one','Descartar y empezar otra')}</button>`;
+  } else if(c.due+c.newAvail>0){
+    title=T("Today's course",'Recorrido de hoy'); lead=T(`Sessions of ${size} exercises. You can stop halfway whenever you like.`,`Sesiones de ${size} ejercicios. Puedes dejarlas a medias cuando quieras.`);
+    go=`<button class="btn primary big block" data-act="start">${T('Go','Salir')} ${ic('go')}</button><button class="btn block" data-act="quick">${T('Quick session (5)','Sesión rápida de 5')}</button>`;
+  } else if(!testDone){
+    title=T('Vocabulary up to date','Vocabulario al día'); lead=T('One control left: a short test closes today\'s course.','Queda un control: un test corto cierra el recorrido de hoy.');
+    go=`<button class="btn primary big block" ${sug.attr}>${T('Take the test','Hacer el test')} ${ic('go')}</button><button class="btn ghost block" data-act="extra" ${Object.keys(S.srs).length?'':'disabled'}>${T('Extra vocabulary review','Repaso extra de vocabulario')}</button>`;
+  } else {
+    title=T('Course complete','Recorrido completo'); lead=T('Reviews come back when they are due. Anything else today is a bonus.','Los repasos vuelven cuando toca. Lo que hagas hoy ya es extra.');
+    go=`<button class="btn primary big block" data-act="extra" ${Object.keys(S.srs).length?'':'disabled'}>${T('Extra review','Repaso extra')} ${ic('go')}</button>`;
+  }
   const run=S.run, wm=S.wmock;
   return `${header()}
-    ${unread?`<div class="panel note"><h3>${T('Note from Claude','Nota de Claude')}</h3><p style="white-space:pre-wrap">${esc(unread.text)}</p><button class="btn ghost" data-act="readmsg">${T('Mark as read','Marcar como leída')}</button></div>`:''}
-    ${run?`<div class="panel note"><h3>${esc(run.title)}: ${T('in progress','a medias')}</h3><button class="btn block" data-go="run">${T('Continue','Continuar')}</button></div>`:''}
-    ${wm?`<div class="panel note"><h3>${T('Writing mock exam in progress','Simulacro de Writing en curso')}</h3><button class="btn block" data-go="wmock">${T('Continue','Continuar')}</button></div>`:''}
-    ${hero}
-    <div class="stats">
-      <div class="stat"><b>${c.streak}</b><span>${pl(c.streak,'day streak','day streak','día seguido','días seguidos')}</span></div>
-      <div class="stat"><b>${c.learned}</b><span>${T('words learnt','palabras aprendidas')}</span></div>
-      <div class="stat"><b>${S.tests.length}</b><span>${T('tests done','tests hechos')}</span></div>
-    </div>
-    <div class="grid2">
-      <button class="tile" data-go="study"><b>${T('Study','Estudiar')}</b><span>${T('Grammar, irregular verbs and exam guides','Gramática, irregulares y guías del examen')}</span></button>
-      <button class="tile" data-go="tests"><b>Tests</b><span>${T('By topic, by part and mock exams','Por temas, por partes y simulacros')}</span></button>
-      <button class="tile" data-go="writing"><b>${T('Write','Escribir')}</b><span>${T('Emails, articles and stories','Emails, artículos e historias')}</span></button>
-      <button class="tile" data-go="progress"><b>${T('Progress','Progreso')}</b><span>${T('Statistics and evolution','Estadísticas y evolución')}</span></button>
-    </div>
-    ${since>=30 && (daysSinceExport===null || daysSinceExport>=7) ? `<div class="panel" style="margin-top:14px"><h3>${T('Time for a review with Claude','Toca revisar con Claude')}</h3><p class="muted small">${T("You have a lot of activity that hasn't been exported. Copy your updates and paste them in the chat.",'Tienes bastante actividad sin exportar. Copia tus novedades y pégalas en el chat.')}</p><button class="btn block" data-go="data">${T('Go to export','Ir a exportar')}</button></div>`:''}`;
+    <section class="today"><h1>${title}</h1><p class="lead">${lead}</p>${course}${table}<div class="go">${go}</div></section>
+    ${unread?`<div class="panel note"><h3>${ic('mail')}${T('Note from Claude','Nota de Claude')}</h3><p style="white-space:pre-wrap">${esc(unread.text)}</p><button class="btn ghost" data-act="readmsg">${T('Mark as read','Marcar como leída')}</button></div>`:''}
+    ${run?`<div class="panel note run"><h3>${ic('clock')}${esc(run.title)}: ${T('in progress','a medias')}</h3><button class="btn block" data-go="run">${T('Continue','Continuar')}</button></div>`:''}
+    ${wm?`<div class="panel note run"><h3>${ic('clock')}${T('Writing mock exam in progress','Simulacro de Writing en curso')}</h3><button class="btn block" data-go="wmock">${T('Continue','Continuar')}</button></div>`:''}
+    <h2>${T('This week','Esta semana')}</h2>${weekHTML()}
+    <p class="small muted" style="margin-top:10px">${c.streak?T(`${c.streak}-day streak · ${c.learned} words learnt · ${S.tests.length} tests`,`${c.streak} ${c.streak===1?'día':'días'} seguidos · ${c.learned} palabras aprendidas · ${S.tests.length} tests`):T(`${c.learned} words learnt · ${S.tests.length} tests`,`${c.learned} palabras aprendidas · ${S.tests.length} tests`)}</p>
+    <h2>${T('Map legend','Leyenda')}</h2>
+    <ul class="legend">
+      <li><button data-go="study">${ic('book')}<span><b>${T('Study','Estudiar')}</b><span>${T('Grammar, irregular verbs, phrasal verbs and exam guides','Gramática, irregulares, phrasal verbs y guías del examen')}</span></span>${ic('chev','sm')}</button></li>
+      <li><button data-go="tests">${ic('flag')}<span><b>Tests</b><span>${T('By topic, by part and timed mock exams','Por temas, por partes y simulacros cronometrados')}</span></span>${ic('chev','sm')}</button></li>
+      <li><button data-go="writing">${ic('pen')}<span><b>${T('Write','Escribir')}</b><span>${T('Emails, articles and stories for Claude to mark','Emails, artículos e historias para que corrija Claude')}</span></span>${ic('chev','sm')}</button></li>
+      <li><button data-go="progress">${ic('chart')}<span><b>${T('Progress','Progreso')}</b><span>${T('Statistics, mock scores and hardest words','Estadísticas, simulacros y palabras difíciles')}</span></span>${ic('chev','sm')}</button></li>
+    </ul>
+    ${since>=30 && (daysSinceExport===null || daysSinceExport>=7) ? `<div class="panel note" style="margin-top:14px"><h3>${ic('mail')}${T('Time for a review with Claude','Toca revisar con Claude')}</h3><p class="small">${T("You have a lot of activity that hasn't been exported. Copy your updates and paste them in the chat.",'Tienes bastante actividad sin exportar. Copia tus novedades y pégalas en el chat.')}</p><button class="btn block" data-go="data">${T('Go to export','Ir a exportar')}</button></div>`:''}`;
 }
 
 /* ---------- Vocabulary session ---------- */
+let trackPos=0;
 function sentenceHTML(prompt, fill, cls){
   const parts=String(prompt).split('___');
   if(parts.length<2) return `<p class="sentence">${esc(prompt)}</p>`;
   return `<p class="sentence">${parts.map(esc).join(`<span class="slot ${cls||''}">${fill?esc(fill):'&nbsp;'}</span>`)}</p>`;
+}
+// One control per exercise on the purple line; answered ones are punched (filled) or crossed
+function trackHTML(ss, curRes){
+  const n=ss.q.length, to=n>1 ? Math.min(1, ss.i/(n-1)) : 1;
+  const dots=ss.q.map((_,k)=>{ const r=k<ss.i ? ss.results[k]?.r : k===ss.i ? curRes : null;
+    return `<i class="${k===ss.i&&!curRes?'cur':''} ${r||''}"></i>`; }).join('');
+  const html=`<div class="track" aria-hidden="true"><div class="leg" data-to="${to}" style="transform:scaleX(${trackPos})"></div>${dots}</div>`;
+  trackPos=to; return html;
 }
 function renderSession(){
   const ss=S.session;
@@ -301,39 +375,46 @@ function renderSession(){
   if(!item){ ss.i++; save(); return renderSession(); }
   if(!current || current.idx!==ss.i || current.id!==item.id)
     current={ id:item.id, idx:ss.i, start:Date.now(), checked:false, result:null, answer:'', showHint:false, opts:item.options ? shuffle([...item.options]) : null };
-  const pct=Math.round(ss.i/ss.q.length*100), done=current.checked, res=current.result, correct=correctText(item);
+  const done=current.checked, res=current.result, correct=correctText(item);
   const hint=L(item,'hint'), exp=L(item,'exp');
-  let body='', answer='';
+  let body='', answer='', foot='';
+  const ch=`<div class="ch"><span class="n">${ss.i+1}</span><span class="t">${esc(lab(CAT_L,item.cat)||T('Exercise','Ejercicio'))}</span><span class="lv">${esc(item.level||'')}</span></div>`;
   if(item.type==='dictation'){
-    body=`<div class="card" style="text-align:center"><button class="play" data-act="say" aria-label="${T('Listen to the sentence','Escuchar la frase')}">▶</button>
+    body=`<div class="card sheet">${ch}<div class="cb" style="text-align:center"><button class="play" data-act="say" aria-label="${T('Listen to the sentence','Escuchar la frase')}">${ic('play')}</button>
       <div style="margin-top:12px"><button class="btn ghost" data-act="sayslow">${T('Listen more slowly','Escuchar más despacio')}</button></div>
-      ${done?`<p class="sentence diff" style="margin-top:14px;font-size:21px">${dictDiff(item.text, current.answer)}</p>`:''}</div>`;
+      ${done?`<p class="sentence diff" style="margin-top:14px;font-size:21px">${dictDiff(item.text, current.answer)}</p>`:''}</div></div>`;
   } else if(item.type==='translate'){
-    body=`<div class="card"><div class="small muted" style="margin-bottom:6px">${T('In Spanish:','En español:')}</div><div class="es">${esc(item.es)}</div>${done?`<p class="sentence" style="margin-top:12px"><span class="slot ${res}">${esc(correct)}</span></p>`:''}</div>`;
+    body=`<div class="card sheet">${ch}<div class="cb"><div class="small muted" style="margin-bottom:6px">${T('In Spanish:','En español:')}</div><div class="es">${esc(item.es)}</div>${done?`<p class="sentence" style="margin-top:12px"><span class="slot ${res}">${esc(correct)}</span></p>`:''}</div></div>`;
   } else {
     const fill = done ? (item.type==='mcq' ? item.answer : (res==='ok' ? current.answer.trim() : correct)) : '';
-    body=`<div class="card">${sentenceHTML(item.prompt, fill, done?(res==='bad'?'ok':res):'')}
+    body=`<div class="card sheet">${ch}<div class="cb">${sentenceHTML(item.prompt, fill, done?(res==='bad'?'ok':res):'')}
       ${item.type==='wordform'?`<div class="base">${esc(item.base)}</div>`:''}
-      ${hint && (current.showHint||done||item.hintAlways)?`<div class="hint">${esc(hint)}</div>`:''}</div>`;
+      ${hint && (done ? !exp : (current.showHint||item.hintAlways))?`<div class="hint">${esc(hint)}</div>`:''}</div></div>`;
   }
   if(item.type==='mcq'){
-    answer=`<div class="opts">${current.opts.map(o=>{ let cls=''; if(done){ if(o===item.answer) cls='ok'; else if(o===current.answer) cls='bad'; }
-      return `<button class="opt ${cls}" data-opt="${esc(o)}" ${done?'disabled':''}>${esc(o)}</button>`; }).join('')}</div>`;
+    answer=`<div class="opts">${current.opts.map((o,i)=>{ let cls=''; if(done){ if(o===item.answer) cls='ok'; else if(o===current.answer) cls='bad'; }
+      return `<button class="opt ${cls}" data-opt="${esc(o)}" ${done?'disabled':''}><span class="ol">${'ABCDEF'[i]}</span><span class="ot">${esc(o)}</span></button>`; }).join('')}</div>`;
   } else if(!done){
-    answer=`<input id="ans" class="field" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="${item.type==='dictation'?T('Write what you hear','Escribe lo que oyes'):T('Your answer','Tu respuesta')}" aria-label="${T('Your answer','Tu respuesta')}">
+    foot=`<input id="ans" class="field" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="${item.type==='dictation'?T('Write what you hear','Escribe lo que oyes'):T('Your answer','Tu respuesta')}" aria-label="${T('Your answer','Tu respuesta')}">
       <div class="actions"><button class="btn primary block" data-act="check">${T('Check','Comprobar')}</button>
       <div class="row">${hint&&!item.hintAlways?`<button class="btn ghost" data-act="hint">${T('Hint','Pista')}</button>`:''}<button class="btn ghost" data-act="dunno" style="margin-left:auto">${T("I don't know",'No lo sé')}</button></div></div>`;
-  } else if(res==='bad' && item.type!=='dictation') answer=`<p class="muted small">${T('Your answer:','Tu respuesta:')} <b>${esc(current.answer)||T('(blank)','(en blanco)')}</b></p>`;
-  let fb='';
+  }
   if(done){
     const title = res==='ok' ? T('Correct','Correcto') : res==='near' ? T('Almost: check the spelling','Casi: revisa la ortografía') : T('Not quite','No es correcto');
     const listen = item.type==='dictation' ? item.text : (item.prompt ? item.prompt.replace('___', correct) : correct);
-    fb=`<div class="fb ${res}"><h3>${title}</h3>${res!=='ok'?`<p>${T('Answer:','Respuesta:')} <span class="ans">${esc(correct)}</span></p>`:''}${exp?`<p class="small" style="margin:0">${esc(exp)}</p>`:''}</div>
-    <div class="actions"><button class="btn primary block big" id="next" data-act="next">${T('Next','Siguiente')}</button><button class="btn ghost" data-say="${esc(listen)}">${T('Listen to the sentence','Escuchar la frase')}</button></div>`;
+    const rows=[];
+    if(res!=='ok') rows.push(`<tr><td class="k">${T('Answer','Respuesta')}</td><td class="ans">${esc(correct)}</td></tr>`);
+    if(res==='bad' && item.type!=='dictation' && item.type!=='mcq') rows.push(`<tr><td class="k">${T('Yours','La tuya')}</td><td>${esc(current.answer)||T('(blank)','(en blanco)')}</td></tr>`);
+    if(exp) rows.push(`<tr><td class="k">${T('Why','Por qué')}</td><td class="small">${esc(exp)}</td></tr>`);
+    foot=`<div class="verdict ${res}"><span class="mk">${ic(res==='bad'?'x':'check')}</span><h3>${title}</h3>
+        <button class="icon-btn sm" style="margin-left:auto" data-say="${esc(listen)}" aria-label="${T('Listen to the sentence','Escuchar la frase')}">${ic('speaker','sm')}</button></div>
+      ${rows.length?`<div class="fbt"><table class="cd"><tbody>${rows.join('')}</tbody></table></div>`:''}
+      <button class="btn primary block big" id="next" data-act="next">${T('Next','Siguiente')} ${ic('go')}</button>`;
   }
-  return `<div class="sess-top"><button class="icon-btn" data-act="quit" aria-label="${T('Exit','Salir')}">✕</button>
-      <div class="bar"><div style="width:${pct}%"></div></div><span class="small muted">${ss.i+1}/${ss.q.length}</span></div>
-    <div class="kind"><span>${esc(lab(CAT_L,item.cat)||T('Exercise','Ejercicio'))}</span><span class="chip">${esc(item.level||'')}</span></div>${body}${answer}${fb}`;
+  return `<div class="sess-top"><button class="icon-btn" data-act="quit" aria-label="${T('Exit','Salir')}">${ic('close')}</button>
+      ${trackHTML(ss, done?res:null)}<span class="count">${ss.i+1}/${ss.q.length}</span></div>
+    ${body}${answer}
+    <div class="foot">${foot}</div>`;
 }
 function dictDiff(text, ans){
   const raw=text.split(/\s+/), a=words(text), b=words(ans);
@@ -344,34 +425,39 @@ function renderSummary(){
   const ss=S.session, first={}; for(const r of ss.results) if(!(r.id in first)) first[r.id]=r.r;
   const ids=Object.keys(first), ok=ids.filter(id=>first[id]!=='bad').length;
   const failed=ids.filter(id=>first[id]==='bad').map(id=>ITEMS.get(id)).filter(Boolean);
-  return `<h1 style="margin-top:20px">${T('Session complete','Sesión terminada')}</h1><p class="muted">${T(`You got ${ok} of ${ids.length} right first time.`,`Has acertado ${ok} de ${ids.length} a la primera.`)}</p>
-    ${failed.length?`<div class="panel"><h3>${T('To review','Para repasar')}</h3><ul class="list">${failed.map(i=>`<li><b>${esc(i.word||correctText(i))}</b><div class="small muted">${esc(L(i,'exp')||'')}</div></li>`).join('')}</ul></div>`:''}
-    <div class="actions"><button class="btn primary big block" data-act="again">${T('Another session','Otra sesión')}</button><button class="btn block" data-act="finish">${T('Back to home','Volver al inicio')}</button></div>`;
+  const dots=ss.results.map(r=>`<i class="${r.r}"></i>`).join('');
+  trackPos=0;
+  return `<div class="sess-top"><button class="icon-btn" data-act="finish" aria-label="${T('Back to home','Volver al inicio')}">${ic('close')}</button>
+      <div class="track" aria-hidden="true"><div class="leg" data-to="1" style="transform:scaleX(0)"></div>${dots}</div><span class="count">${T('Finish','Meta')}</span></div>
+    <h1>${T('Session complete','Sesión terminada')}</h1>
+    <div class="score"><b>${ok}/${ids.length}</b><span>${T('right first time','a la primera')}</span></div>
+    ${failed.length?`<h2>${T('To review','Para repasar')}</h2><table class="cd"><tbody>${failed.map((i,k)=>`<tr><th>${k+1}</th><td><b>${esc(i.word||correctText(i))}</b><div class="small muted">${esc(L(i,'exp')||'')}</div></td></tr>`).join('')}</tbody></table>`:`<p class="muted">${T('A clean run: every control punched first time.','Recorrido limpio: todos los controles a la primera.')}</p>`}
+    <div class="foot"><div class="actions"><button class="btn primary big block" data-act="again">${T('Another session','Otra sesión')} ${ic('go')}</button><button class="btn block" data-act="finish">${T('Back to home','Volver al inicio')}</button></div></div>`;
 }
 
 /* ---------- Study ---------- */
 function bestOf(kind, ref){ const ts=S.tests.filter(t=>t.kind===kind && t.ref===ref); return ts.length ? Math.max(...ts.map(t=>Math.round(t.score/t.max*100))) : null; }
 function badge(p){ return p===null ? '' : `<span class="pct ${p>=80?'hi':p>=60?'mid':'lo'}">${p}%</span>`; }
-function readMark(id){ return S.read[id] ? `<span class="tick" aria-label="${T('Read','Leído')}">✓</span>` : ''; }
+function readMark(id){ return S.read[id] ? `<span class="tick" aria-label="${T('Read','Leído')}">${ic('check','sm')}</span>` : ''; }
 function groupOf(p){ const g=L(p,'group')||p.group||'Más'; return LANG==='en' ? (GROUP_EN[g]||g) : g; }
 function renderStudy(){
   const pages=[...PAGES.values()], sec=s=>pages.filter(g=>g.section===s);
-  const li=g=>`<li><button class="rowbtn" data-page="guide:${esc(g.id)}"><span>${esc(L(g,'title'))}</span>${readMark(g.id)}</button></li>`;
+  const li=g=>{ const k=skillOfPage(g); return `<li><button class="rowbtn" data-page="guide:${esc(g.id)}">${k?`<i class="sw ${SKILL_SW[k]}"></i>`:'<i class="sw none"></i>'}<span class="rt">${esc(L(g,'title'))}</span>${readMark(g.id)||ic('chev','sm')}</button></li>`; };
   const wp=sec('writing'), groups=[...new Set(wp.map(groupOf))];
   const notes=sec('notes'), raw=S.rawNotes.filter(n=>n.status!=='converted');
   const learnedPh=[...PHRASAL.values()].filter(p=>{ const s=S.srs[phId(p.v)]; return s && s.i>=3; }).length;
   return `${header()}<h1>${T('Study','Estudiar')}</h1><p class="muted">${T('Your theory book and your notes.','Tu libro de teoría y tus apuntes.')}</p>
     <h2>${T('My notes','Mis apuntes')}</h2>
     ${notes.length?`<ul class="list">${notes.map(li).join('')}</ul>`:`<p class="small muted">${T('Your notes will appear here once Claude sends them back converted.','Aquí aparecerán tus apuntes cuando Claude te los devuelva convertidos.')}</p>`}
-    ${raw.length?`<ul class="list">${raw.map(n=>`<li><button class="rowbtn" data-note="${esc(n.id)}"><span>${esc(n.title||T('Untitled note','Apunte sin título'))}<br><span class="small muted">${n.status==='ready'?T('Ready to send to Claude','Listo para enviar a Claude'):T('Draft','Borrador')}</span></span><span>›</span></button></li>`).join('')}</ul>`:''}
+    ${raw.length?`<ul class="list">${raw.map(n=>`<li><button class="rowbtn" data-note="${esc(n.id)}"><span>${esc(n.title||T('Untitled note','Apunte sin título'))}<br><span class="small muted">${n.status==='ready'?T('Ready to send to Claude','Listo para enviar a Claude'):T('Draft','Borrador')}</span></span>${ic('chev','sm')}</button></li>`).join('')}</ul>`:''}
     <div class="row"><button class="btn" data-go="templates">${T('Note templates','Plantillas de apuntes')}</button><button class="btn" data-newnote="">${T('New note','Nuevo apunte')}</button></div>
     <h2>${T('The exam','El examen')}</h2><ul class="list">${sec('exam').map(li).join('')}</ul>
-    <h2>${T('Grammar','Gramática')}</h2><ul class="list">${[...GRAMMAR.values()].map(g=>`<li><button class="rowbtn" data-page="grammar:${esc(g.id)}"><span>${esc(L(g,'title'))} <span class="chip">${esc(g.level)}</span></span><span class="row">${badge(bestOf('topic',g.id))}${readMark(g.id)}</span></button></li>`).join('')}</ul>
+    <h2>${T('Grammar','Gramática')}</h2><ul class="list">${[...GRAMMAR.values()].map(g=>`<li><button class="rowbtn" data-page="grammar:${esc(g.id)}"><i class="sw thicket"></i><span class="rt">${esc(L(g,'title'))}</span><span class="row"><span class="chip">${esc(g.level)}</span>${badge(bestOf('topic',g.id))}${readMark(g.id)}</span></button></li>`).join('')}</ul>
     <h2>Writing</h2>${groups.map(g=>`<h3 class="sub">${esc(g)}</h3><ul class="list">${wp.filter(p=>groupOf(p)===g).map(li).join('')}</ul>`).join('')}
     <h2>${T('Vocabulary','Vocabulario')}</h2><ul class="list">
-      <li><button class="rowbtn" data-page="phrasal:"><span>${T('Phrasal verbs in context','Phrasal verbs en contexto')} (${PHRASAL.size})<br><span class="small muted">${T(`${learnedPh} learnt in your sessions`,`${learnedPh} aprendidos en tus sesiones`)}</span></span>${badge(bestOf('phrasal','phrasal'))||'<span>›</span>'}</button></li>
-      <li><button class="rowbtn" data-page="irregular:"><span>${T('Irregular verbs','Verbos irregulares')} (${(window.LEXI_IRREGULAR||[]).length})</span>${badge(bestOf('irregular','irregular'))||'<span>›</span>'}</button></li></ul>
-    <h2>Speaking</h2><ul class="list">${sec('speaking').map(li).join('')}<li><button class="rowbtn" data-go="speak"><span>${T('Practise speaking with a timer','Practicar speaking con cronómetro')}</span><span>›</span></button></li></ul>
+      <li><button class="rowbtn" data-page="phrasal:"><i class="sw open"></i><span class="rt">${T('Phrasal verbs in context','Phrasal verbs en contexto')} (${PHRASAL.size})<br><span class="small muted">${T(`${learnedPh} learnt in your sessions`,`${learnedPh} aprendidos en tus sesiones`)}</span></span>${badge(bestOf('phrasal','phrasal'))||ic('chev','sm')}</button></li>
+      <li><button class="rowbtn" data-page="irregular:"><i class="sw open"></i><span class="rt">${T('Irregular verbs','Verbos irregulares')} (${(window.LEXI_IRREGULAR||[]).length})</span>${badge(bestOf('irregular','irregular'))||ic('chev','sm')}</button></li></ul>
+    <h2>Speaking</h2><ul class="list">${sec('speaking').map(li).join('')}<li><button class="rowbtn" data-go="speak"><i class="sw rock"></i><span class="rt">${T('Practise speaking with a timer','Practicar speaking con cronómetro')}</span>${ic('chev','sm')}</button></li></ul>
     ${sec('other').length?`<h2>${T('More','Más')}</h2><ul class="list">${sec('other').map(li).join('')}</ul>`:''}`;
 }
 function renderPage(){
@@ -406,9 +492,9 @@ function phrCards(){
   const list=[...PHRASAL.values()].filter(p=>(!phrTheme||p.theme===phrTheme) && (!f || [p.v,p.es,p.en,...(p.ex||[])].join(' ').toLowerCase().includes(f)));
   if(!list.length) return `<p class="muted">${T('Nothing matches that filter.','Nada con ese filtro.')}</p>`;
   return list.map(p=>{ const s=S.srs[phId(p.v)];
-    return `<div class="pv"><div class="row spread"><b class="pvv">${esc(p.v)}</b><span class="row">${s&&s.i>=3?`<span class="tick" title="${T('Learnt','Aprendido')}">✓</span>`:''}${p.sep?`<span class="chip alt">${T('separable','separable')}</span>`:''}<span class="chip">${esc(p.level||'')}</span></span></div>
+    return `<div class="pv"><div class="row spread"><b class="pvv">${esc(p.v)}</b><span class="row">${s&&s.i>=3?`<span class="tick" title="${T('Learnt','Aprendido')}">${ic('check','sm')}</span>`:''}${p.sep?`<span class="chip alt">${T('separable','separable')}</span>`:''}<span class="chip">${esc(p.level||'')}</span></span></div>
       <div class="pves">${esc(meaning(p))}${LANG==='en'&&p.es&&p.en?`<span class="small muted"> · ES: ${esc(p.es)}</span>`:''}</div>
-      <ul class="exs">${(p.ex||[]).map(e=>`<li><button class="icon-btn sm" data-say="${esc(e.replace(/\*/g,''))}" aria-label="${T('Listen','Escuchar')}">▶</button><span>${hlEx(e)}</span></li>`).join('')}</ul></div>`; }).join('');
+      <ul class="exs">${(p.ex||[]).map(e=>`<li><button class="icon-btn sm" data-say="${esc(e.replace(/\*/g,''))}" aria-label="${T('Listen','Escuchar')}">${ic('play','sm')}</button><span>${hlEx(e)}</span></li>`).join('')}</ul></div>`; }).join('');
 }
 function irrRows(rows){ return rows.map(v=>`<tr data-say="${esc(v.b+', '+v.p.replace('/',' or ')+', '+v.pp.replace('/',' or '))}"><td><b>${esc(v.b)}</b><div class="small muted">${esc(v.es)}</div></td><td>${esc(v.p)}</td><td>${esc(v.pp)}</td></tr>`).join(''); }
 
@@ -567,7 +653,7 @@ function renderSpeak(){
     <div class="timer-big" ${sp.end?`data-deadline="${sp.end}" data-kind="speak"`:''}>${sp.end?mmss(sp.end-Date.now()):mmss(secs*1000)}</div>
     <div class="actions">
       <button class="btn primary block" data-act="sptimer">${sp.end?T('Restart timer','Reiniciar cronómetro'):T('Start speaking','Empezar a hablar')}</button>
-      ${canRec?(rec?`<button class="btn block danger" data-act="recstop">■ ${T('Stop recording','Parar grabación')}</button>`:`<button class="btn block" data-act="recstart">● ${T('Record myself','Grabarme')}</button>`):''}
+      ${canRec?(rec?`<button class="btn block danger" data-act="recstop">${ic('stop','sm')} ${T('Stop recording','Parar grabación')}</button>`:`<button class="btn block" data-act="recstart">${ic('rec','sm')} ${T('Record myself','Grabarme')}</button>`):''}
       ${recURL&&!rec?`<audio controls src="${recURL}" style="width:100%"></audio>`:''}
       <button class="btn ghost block" data-act="spnext">${another}</button></div>
     <p class="small muted">${T('The recording only stays on your phone while you are on this screen. Listen for long pauses, tense mistakes and repeated words.','La grabación solo se queda en tu móvil mientras estás en esta pantalla. Escúchate buscando silencios largos, errores de tiempos verbales y palabras repetidas.')}</p>`;
@@ -631,6 +717,7 @@ function startPaper(id){
   if(!tasks.length){ toast(T('This mock exam has no tasks.','Este simulacro no tiene tareas.')); return; }
   startRun({ kind:'mock', ref:id, title:L(p,'title'), tasks, mode:'exam', minutes:p.minutes, section:p.section });
 }
+const SEC_SW = SKILL_SW;
 const TT = x => typeof x==='string' ? TASKS.get(x) : x;
 
 /* ---------- Tests: marking ---------- */
@@ -676,25 +763,29 @@ function finishRun(auto){
 /* ---------- Tests: screens ---------- */
 function renderTests(){
   const gl=[...GRAMMAR.values()];
-  const partBtn=(sec,p)=>{ const n=[...TASKS.values()].filter(t=>t.section===sec&&t.part===p).length;
-    const done=S.tests.filter(t=>t.ref===sec+':'+p); const last=done[done.length-1];
-    return `<button class="partbtn" data-part="${sec}:${p}" ${n?'':'disabled'}><b>Part ${p}</b><span>${last?Math.round(last.score/last.max*100)+'%':n+' '+pl(n,'task','tasks','tarea','tareas')}</span></button>`; };
+  // Each exam part is a control on its section's course; punched once you score 80 % or more
+  const partCtrl=(sec,p)=>{ const n=[...TASKS.values()].filter(t=>t.section===sec&&t.part===p).length;
+    const done=S.tests.filter(t=>t.ref===sec+':'+p), best=done.length?Math.max(...done.map(t=>Math.round(t.score/t.max*100))):null;
+    return ctrlHTML({ state:best!==null&&best>=80?'done':best!==null?'visited':(n?'':'none'), num:p, mark:best!==null&&best>=80?ic('check'):'',
+      label:best!==null?`${best}%`:n?`${n} ${pl(n,'task','tasks','tarea','tareas')}`:T('None yet','Aún no'), attr:`data-part="${sec}:${p}" ${n?'':'disabled'}`, aria:`Part ${p}` }); };
   const papers=[...PAPERS.values()], hist=S.tests.slice(-12).reverse();
+  const row=(attr, sw, title, sub, right)=>`<li><button class="rowbtn" ${attr}><i class="sw ${sw}"></i><span class="rt">${title}${sub?`<span class="small muted">${sub}</span>`:''}</span>${right}</button></li>`;
   return `${header()}<h1>Tests</h1>
-    ${S.run?`<div class="panel note"><b>${esc(S.run.title)}</b>: ${T('in progress','a medias')}.<div class="gap"></div><button class="btn block" data-go="run">${T('Continue','Continuar')}</button></div>`:''}
+    ${S.run?`<div class="panel note run"><h3>${ic('clock')}${esc(S.run.title)}: ${T('in progress','a medias')}</h3><button class="btn block" data-go="run">${T('Continue','Continuar')}</button></div>`:''}
     <h2>${T('Mock exams','Simulacros')}</h2><p class="small muted">${T('Timed, with no answers until the end, just like the real exam.','Con cronómetro y sin ver las soluciones hasta el final, como en el examen.')}</p>
     <ul class="list">${papers.map(p=>{ const b=S.tests.filter(t=>t.ref===p.id); const best=b.length?Math.max(...b.map(t=>t.score)):null;
-      return `<li><button class="rowbtn" data-paper="${esc(p.id)}"><span>${esc(L(p,'title'))}<br><span class="small muted">${p.minutes} min, ${p.max} ${T('questions','preguntas')}</span></span><span>${best===null?'›':`<span class="pct">${best}/${p.max}</span>`}</span></button></li>`; }).join('')}
-      <li><button class="rowbtn" data-act="wmock"><span>${T('Full PET Writing','Writing PET completo')}<br><span class="small muted">${T('45 min: email + article or story (marked by Claude)','45 min: email + artículo o historia (lo corrige Claude)')}</span></span><span>›</span></button></li>
-      <li><button class="rowbtn" data-go="speak"><span>Speaking<br><span class="small muted">${T('Questions, photos and discussion with a timer','Preguntas, fotos y discusión con cronómetro')}</span></span><span>›</span></button></li></ul>
-    <h2>${T('Practice by part','Práctica por partes')}</h2><p class="small muted">${T('No time limit, marked at the end of each part.','Sin tiempo y con corrección al terminar cada parte.')}</p>
-    ${Object.keys(SECTION_L).map(sec=>`<h3 class="sub">${lab(SECTION_L,sec)}</h3><div class="parts">${Array.from({length:PARTS[sec]},(_,i)=>partBtn(sec,i+1)).join('')}</div>`).join('')}
+      return row(`data-paper="${esc(p.id)}"`, SEC_SW[p.section]||'open', esc(L(p,'title')), `${p.minutes} min · ${p.max} ${T('questions','preguntas')}`, best===null?ic('chev','sm'):`<span class="pct">${best}/${p.max}</span>`); }).join('')}
+      ${row('data-act="wmock"','contour',T('Full PET Writing','Writing PET completo'),T('45 min · email + article or story, marked by Claude','45 min · email + artículo o historia, lo corrige Claude'),ic('chev','sm'))}
+      ${row('data-go="speak"','rock','Speaking',T('Questions, photos and discussion with a timer','Preguntas, fotos y discusión con cronómetro'),ic('chev','sm'))}</ul>
+    <h2>${T('Practice by part','Práctica por partes')}</h2><p class="small muted">${T('No time limit, marked at the end of each part. A part is punched at 80 % or more.','Sin tiempo y con corrección al terminar cada parte. Una parte queda marcada con un 80 % o más.')}</p>
+    ${Object.keys(SECTION_L).map(sec=>`<h3 class="sub"><i class="sw ${SEC_SW[sec]}"></i>${lab(SECTION_L,sec)}</h3><div class="course parts">${Array.from({length:PARTS[sec]},(_,i)=>partCtrl(sec,i+1)).join('')}</div>`).join('')}
     <h2>${T('Tests by topic','Test por temas')}</h2>
-    <ul class="list">${gl.map(g=>`<li><button class="rowbtn" data-topic="${esc(g.id)}"><span>${esc(L(g,'title'))}</span>${badge(bestOf('topic',g.id))||'<span>›</span>'}</button></li>`).join('')}
-      <li><button class="rowbtn" data-act="irrtest"><span>${T('Irregular verbs','Verbos irregulares')}</span>${badge(bestOf('irregular','irregular'))||'<span>›</span>'}</button></li>
-      <li><button class="rowbtn" data-act="phrtest"><span>Phrasal verbs</span>${badge(bestOf('phrasal','phrasal'))||'<span>›</span>'}</button></li></ul>
-    ${hist.length?`<h2>${T('History','Historial')}</h2><ul class="list">${hist.map(t=>`<li><button class="rowbtn" data-result="${esc(t.id)}"><span>${esc(t.title)}<br><span class="small muted">${fmtDate(t.at)}</span></span><span class="pct">${t.score}/${t.max}</span></button></li>`).join('')}</ul>`:''}`;
+    <ul class="list">${gl.map(g=>row(`data-topic="${esc(g.id)}"`,'thicket',esc(L(g,'title')),'',badge(bestOf('topic',g.id))||ic('chev','sm'))).join('')}
+      ${row('data-act="irrtest"','open',T('Irregular verbs','Verbos irregulares'),'',badge(bestOf('irregular','irregular'))||ic('chev','sm'))}
+      ${row('data-act="phrtest"','open','Phrasal verbs','',badge(bestOf('phrasal','phrasal'))||ic('chev','sm'))}</ul>
+    ${hist.length?`<h2>${T('History','Historial')}</h2><table class="cd hist"><tbody>${hist.map(t=>`<tr data-result="${esc(t.id)}"><td><b>${esc(t.title)}</b><div class="small muted">${fmtDate(t.at)}</div></td><td class="v">${t.score}/${t.max}</td></tr>`).join('')}</tbody></table>`:''}`;
 }
+
 function passageHTML(text, t, reveal, ans){
   return fmtText(text).replace(/\[(\d+)\]/g, (m,n)=>{
     const q=t.questions.find(q=>String(q.n)===n);
@@ -716,8 +807,8 @@ function qHTML(t, q, run, reveal){
 }
 function audioCtl(run, key, lines, reveal){
   const used=run.plays[key]||0, limit=run.mode==='exam'&&!reveal?2:Infinity, left=limit-used;
-  return `<div class="audio"><button class="btn ${left>0?'primary':''}" data-play="${esc(key)}" ${left>0?'':'disabled'}>▶ ${T('Listen','Escuchar')}</button>
-    <button class="btn ghost" data-act="stopaudio" aria-label="${T('Stop','Parar')}">■</button>${limit!==Infinity?`<span class="small muted">${left>0?T(`${left} ${left===1?'play':'plays'} left`,`Te quedan ${left}`):T('No plays left','Sin escuchas')}</span>`:''}
+  return `<div class="audio"><button class="btn ${left>0?'primary':''}" data-play="${esc(key)}" ${left>0?'':'disabled'}>${ic('play','sm')} ${T('Listen','Escuchar')}</button>
+    <button class="btn ghost" data-act="stopaudio" aria-label="${T('Stop','Parar')}">${ic('stop','sm')}</button>${limit!==Infinity?`<span class="small muted">${left>0?T(`${left} ${left===1?'play':'plays'} left`,`Te quedan ${left}`):T('No plays left','Sin escuchas')}</span>`:''}
     ${reveal?`<details><summary class="small">${T('See transcript','Ver transcripción')}</summary><div class="small transcript">${lines.map(([w,x])=>`<p><b>${w==='B'?'—':'–'}</b> ${esc(x)}</p>`).join('')}</div></details>`:''}</div>`;
 }
 function renderRun(){
@@ -731,10 +822,10 @@ function renderRun(){
     ? `<div class="row spread"><button class="btn" data-act="prevtask" ${run.ti?'':'disabled'}>${T('Previous','Anterior')}</button>${last?`<button class="btn primary" data-act="finishrun">${T('Hand in','Entregar examen')}</button>`:`<button class="btn primary" data-act="nexttask">${T('Next part','Siguiente parte')}</button>`}</div>`
     : (reveal ? `<div class="fb ${sc===t.questions.length?'ok':'near'}"><h3>${T(`${sc} of ${t.questions.length} correct`,`${sc} de ${t.questions.length} correctas`)}</h3></div>${last?`<button class="btn primary big block" data-act="finishrun">${T('See result','Ver resultado')}</button>`:`<button class="btn primary big block" data-act="nexttask">${T('Next','Siguiente')}</button>`}`
       : `<button class="btn primary big block" data-act="checktask">${T('Check answers','Corregir')}</button>`);
-  return `<div class="sess-top"><button class="icon-btn" data-act="quitrun" aria-label="${T('Exit','Salir')}">✕</button><div style="flex:1"><b class="small">${esc(run.title)}</b>
-      ${tasks.length>1?`<div class="bar" style="margin-top:4px"><div style="width:${Math.round(run.ti/tasks.length*100)}%"></div></div>`:''}</div>
+  return `<div class="sess-top"><button class="icon-btn" data-act="quitrun" aria-label="${T('Exit','Salir')}">${ic('close')}</button><div style="flex:1;min-width:0"><b class="small" style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(run.title)}</b>
+      ${tasks.length>1?`<div class="track" aria-hidden="true"><div class="leg" data-to="${run.ti/(tasks.length-1)}" style="transform:scaleX(${Math.max(0,run.ti-1)/(tasks.length-1)})"></div>${tasks.map((_,k)=>`<i class="${k<run.ti?'ok':k===run.ti?'cur':''}"></i>`).join('')}</div>`:''}</div>
       ${run.deadline?`<span class="timer" data-deadline="${run.deadline}" data-kind="run">${mmss(run.deadline-Date.now())}</span>`:''}</div>
-    <div class="kind"><span>${esc(L(t,'title')||'')}${tasks.length>1?` (${run.ti+1}/${tasks.length})`:''}</span><span class="small muted">${answered}/${t.questions.length}</span></div>
+    <div class="ch taskh"><span class="n">${t.part||run.ti+1}</span><span class="t">${esc(L(t,'title')||'')}${tasks.length>1?` · ${run.ti+1}/${tasks.length}`:''}</span><span class="lv">${answered}/${t.questions.length}</span></div>
     ${t.instructions?`<p class="instr">${esc(L(t,'instructions'))}</p>`:''}
     ${t.audio?audioCtl(run, t.id, t.audio, reveal):''}
     ${t.passage?`<div class="passage">${passageHTML(t.passage, t, reveal, run.answers)}</div>`:''}
@@ -748,12 +839,14 @@ function renderResult(){
   const pct=Math.round(r.score/r.max*100), bad=r.detail.filter(d=>d.r!=='ok');
   const redo = r.kind==='topic' ? `data-topic="${esc(r.ref)}"` : r.kind==='mock' ? `data-paper="${esc(r.ref)}"` : r.kind==='part' ? `data-part="${esc(r.ref)}"` : r.kind==='irregular' ? 'data-act="irrtest"' : 'data-act="phrtest"';
   return `${backBar(T('Result','Resultado'),'tests')}
-    <h1>${T(`${r.score} out of ${r.max}`,`${r.score} de ${r.max}`)} <span class="muted" style="font-size:22px">(${pct}%)</span></h1>
-    <p class="muted">${esc(r.title)}, ${fmtDate(r.at)}, ${mmss(r.durationSec*1000)} min.</p>
+    <h1>${esc(r.title)}</h1>
+    <div class="score"><b>${r.score}/${r.max}</b><span>${pct}%</span></div>
+    <p class="muted small">${fmtDate(r.at)} · ${mmss(r.durationSec*1000)} min</p>
     ${r.scale?`<div class="panel note"><h3>≈ ${r.scale} ${T('on the Cambridge English Scale','en la Cambridge English Scale')}</h3><p class="small" style="margin:0">${scaleLabel(r.scale)}. ${T('Approximate estimate: the official conversion varies slightly between exam sessions.','Estimación aproximada: la conversión oficial varía un poco en cada convocatoria.')}</p></div>`:''}
-    ${r.parts.length>1?`<div class="panel"><h3>${T('By part','Por partes')}</h3><ul class="list">${r.parts.map(p=>`<li><div class="row spread"><span>${esc(p.title||'Part '+p.part)}</span><span class="small muted">${p.score}/${p.max}</span></div><div class="meter"><div style="width:${p.score/p.max*100}%"></div></div></li>`).join('')}</ul></div>`:''}
-    ${bad.length?`<h2>${T('Your mistakes','Tus fallos')}</h2><ul class="list">${bad.map(d=>`<li><div class="small muted">${T('Question','Pregunta')} ${d.n}${d.part?`, Part ${d.part}`:''}</div>${d.stem?`<div class="small">${esc(d.stem)}</div>`:''}<div>${T('Your answer:','Tu respuesta:')} <b class="bad-t">${esc(d.given)||T('(blank)','(en blanco)')}</b></div><div>${T('Correct:','Correcta:')} <b class="ok-t">${esc(d.correct)}</b></div></li>`).join('')}</ul>`:`<p>${T('All correct!','¡Todo correcto!')}</p>`}
-    <div class="actions"><button class="btn primary block" ${redo}>${T('Try again','Repetir')}</button><button class="btn block" data-go="tests">${T('Back to tests','Volver a tests')}</button></div>`;
+    ${r.parts.length>1?`<h2>${T('By part','Por partes')}</h2><table class="cd"><tbody>${r.parts.map((p,i)=>`<tr><th>${p.part||i+1}</th><td>${esc(p.title||'Part '+p.part)}<div class="meter"><div style="width:${p.score/p.max*100}%"></div></div></td><td class="v">${p.score}/${p.max}</td></tr>`).join('')}</tbody></table>`:''}
+    ${bad.length?`<h2>${T('Your mistakes','Tus fallos')}</h2><table class="cd"><tbody>${bad.map(d=>`<tr><th>${d.n}</th><td>${d.part&&r.parts.length>1?`<div class="small muted">Part ${d.part}</div>`:''}${d.stem?`<div class="small">${esc(d.stem)}</div>`:''}
+      <div class="ans-row bad-t">${ic('x','sm')}<span class="${d.given?'struck':''}">${esc(d.given)||T('(blank)','(en blanco)')}</span></div><div class="ans-row ok-t">${ic('check','sm')}<b>${esc(d.correct)}</b></div></td></tr>`).join('')}</tbody></table>`:`<p class="muted">${T('A clean run: every answer right.','Recorrido limpio: todo correcto.')}</p>`}
+    <div class="actions" style="margin-top:18px"><button class="btn primary block" ${redo}>${T('Try again','Repetir')}</button><button class="btn block" data-go="tests">${T('Back to tests','Volver a tests')}</button></div>`;
 }
 
 /* ---------- Writing ---------- */
@@ -823,7 +916,7 @@ function renderWMock(){
   const w1=S.writings.find(x=>x.id===m.w1), p1=ITEMS.get(w1?.promptId);
   const w2=m.w2 && S.writings.find(x=>x.id===m.w2), p2=w2 && ITEMS.get(w2.promptId);
   const ta=(w,p)=>`<textarea class="field" data-w="${esc(w.id)}" placeholder="Write here…" spellcheck="false">${esc(w.text)}</textarea><div class="small muted" data-wc="${esc(w.id)}" style="margin:6px 0 16px">${wcLabel(w.text,p)}</div>`;
-  return `<div class="sess-top"><button class="icon-btn" data-go="writing" aria-label="${T('Exit (it is saved)','Salir (se guarda)')}">←</button><b style="flex:1">${T('Writing mock exam','Simulacro de Writing')}</b><span class="timer" data-deadline="${m.deadline}" data-kind="wmock">${mmss(m.deadline-Date.now())}</span></div>
+  return `<div class="sess-top"><button class="icon-btn" data-go="writing" aria-label="${T('Exit (it is saved)','Salir (se guarda)')}">${ic('back')}</button><b style="flex:1">${T('Writing mock exam','Simulacro de Writing')}</b><span class="timer" data-deadline="${m.deadline}" data-kind="wmock">${mmss(m.deadline-Date.now())}</span></div>
     <p class="small muted">${T('You have 45 minutes for both parts. It saves automatically. You can leave and come back.','Tienes 45 minutos para las dos partes. Se guarda solo. Puedes salir y volver.')}</p>
     <h2>${T('Part 1 (compulsory)','Part 1 (obligatoria)')}</h2><div class="panel"><pre class="task">${esc(p1.task)}</pre></div>${ta(w1,p1)}
     <h2>${T('Part 2 (choose one)','Part 2 (elige una)')}</h2>
@@ -833,10 +926,25 @@ function renderWMock(){
 }
 
 /* ---------- Progress ---------- */
+function heatmapHTML(){
+  // 12 weeks of activity as a vegetation-density tile: columns are weeks (Monday first), darker = more work that day
+  const weeks=12, todayStart=startOfDay(Date.now()), dow=(new Date(todayStart).getDay()+6)%7;
+  const start=todayStart-(dow+(weeks-1)*7)*DAY; let active=0;
+  const day=(w,d)=>start+(w*7+d)*DAY+12*3600e3;
+  const cells=['<span></span>'];
+  for(let w=0;w<weeks;w++){ const t=day(w,0), m=new Date(t).getMonth(), prev=w?new Date(day(w-1,0)).getMonth():-1;
+    cells.push(`<span class="mo">${m!==prev?esc(new Date(t).toLocaleDateString(LOCALE(),{month:'short'})):''}</span>`); }
+  for(let d=0;d<7;d++){
+    cells.push(`<span class="wd">${d%2===0?esc(new Date(day(0,d)).toLocaleDateString(LOCALE(),{weekday:'narrow'})):''}</span>`);
+    for(let w=0;w<weeks;w++){ const t=day(w,d);
+      if(t>Date.now()+DAY/2){ cells.push('<i class="fut"></i>'); continue; }
+      const x=S.daily[dayKey(t)]||{}, v=(x.n||0)+(x.t||0)*5; if(v) active++;
+      cells.push(`<i class="${v===0?'':'h'+(v<5?1:v<15?2:v<30?3:4)}" title="${dayKey(t)}: ${v}"></i>`); } }
+  return `<div class="heat" role="img" aria-label="${T(`${active} active days in the last 12 weeks`,`${active} días activos en las últimas 12 semanas`)}">${cells.join('')}</div>
+    <p class="small muted" style="margin-top:8px">${T(`${active} active days. Darker means more exercises that day.`,`${active} días activos. Más oscuro, más ejercicios ese día.`)}</p>`;
+}
 function renderProgress(){
   const c=counts(), now=Date.now();
-  const last=[]; for(let k=13;k>=0;k--){ const key=dayKey(now-k*DAY); last.push({ key, d:S.daily[key]||{n:0,ok:0,t:0} }); }
-  const max=Math.max(5,...last.map(x=>x.d.n+(x.d.t||0)*5));
   const week=S.attempts.filter(a=>a.t>now-7*DAY);
   const acc=week.length?Math.round(week.filter(a=>a.r!=='bad').length/week.length*100):null;
   const by=(keyFn,map)=>{ const m={}; for(const a of S.attempts){ const it=ITEMS.get(a.id); if(!it) continue; const k=keyFn(it); (m[k]||(m[k]={n:0,ok:0})); m[k].n++; if(a.r!=='bad') m[k].ok++; }
@@ -844,14 +952,18 @@ function renderProgress(){
   const hard=Object.entries(S.srs).filter(([,s])=>s.l>0).sort((a,b)=>b[1].l-a[1].l).slice(0,10).map(([id,s])=>({it:ITEMS.get(id),s})).filter(x=>x.it);
   const mocks=S.tests.filter(t=>t.kind==='mock');
   const grammar=[...GRAMMAR.values()].map(g=>({ g, p:bestOf('topic',g.id) })).filter(x=>x.p!==null).sort((a,b)=>a.p-b.p);
+  const seen=c.total-c.unseen;
   return `${backBar(T('Progress','Progreso'),'home')}
-    <div class="stats"><div class="stat"><b>${c.learned}</b><span>${T('words learnt','palabras aprendidas')}</span></div><div class="stat"><b>${c.mastered}</b><span>${T('mastered','dominadas')}</span></div><div class="stat"><b>${acc===null?'–':acc+'%'}</b><span>${T('vocabulary accuracy, 7 days','aciertos vocabulario, 7 días')}</span></div></div>
-    <div class="panel"><h3>${T('Activity, last 14 days','Actividad, últimos 14 días')}</h3>
-      <div class="bars">${last.map(x=>{ const tot=x.d.n+(x.d.t||0)*5; return tot?`<div class="col" title="${x.key}"><div class="badp" style="height:${(x.d.n-x.d.ok)/max*100}%"></div><div class="okp" style="height:${(x.d.ok+(x.d.t||0)*5)/max*100}%"></div></div>`:`<div class="col"><div class="empty"></div></div>`; }).join('')}</div></div>
-    ${mocks.length?`<h2>${T('Mock exams','Simulacros')}</h2><ul class="list">${mocks.slice(-10).reverse().map(t=>`<li><button class="rowbtn" data-result="${esc(t.id)}"><span>${esc(t.title)}<br><span class="small muted">${fmtDate(t.at)}${t.scale?`, ≈ ${t.scale} (${scaleLabel(t.scale)})`:''}</span></span><span class="pct">${t.score}/${t.max}</span></button></li>`).join('')}</ul>`:''}
+    <div class="stats"><div class="stat"><b>${c.learned}</b><span>${T('words learnt','palabras aprendidas')}</span></div><div class="stat"><b>${c.mastered}</b><span>${T('mastered','dominadas')}</span></div><div class="stat"><b>${acc===null?'–':acc+'%'}</b><span>${T('accuracy, 7 days','aciertos, 7 días')}</span></div></div>
+    <h2>${T('Last 12 weeks','Últimas 12 semanas')}</h2>${heatmapHTML()}
+    <h2>${T('Word bank','Banco de palabras')}</h2>
+    <div class="bank" role="img" aria-label="${T(`${c.mastered} mastered, ${c.learned} learnt, ${seen} seen of ${c.total}`,`${c.mastered} dominadas, ${c.learned} aprendidas, ${seen} vistas de ${c.total}`)}">
+      <div class="m" style="width:${c.total?c.mastered/c.total*100:0}%"></div><div class="l" style="width:${c.total?(c.learned-c.mastered)/c.total*100:0}%"></div><div class="s" style="width:${c.total?(seen-c.learned)/c.total*100:0}%"></div></div>
+    <div class="row wrap small muted bankkey"><span><i class="m"></i>${T('Mastered','Dominadas')} ${c.mastered}</span><span><i class="l"></i>${T('Learnt','Aprendidas')} ${c.learned-c.mastered}</span><span><i class="s"></i>${T('Seen','Vistas')} ${seen-c.learned}</span><span>${T('Total','Total')} ${c.total}</span></div>
+    ${mocks.length?`<h2>${T('Mock exams','Simulacros')}</h2><table class="cd hist"><tbody>${mocks.slice(-10).reverse().map(t=>`<tr data-result="${esc(t.id)}"><td><b>${esc(t.title)}</b><div class="small muted">${fmtDate(t.at)}${t.scale?` · ≈ ${t.scale} (${scaleLabel(t.scale)})`:''}</div></td><td class="v">${t.score}/${t.max}</td></tr>`).join('')}</tbody></table>`:''}
     ${grammar.length?`<h2>${T('Grammar (best score)','Gramática (mejor nota)')}</h2><ul class="list">${grammar.map(x=>`<li><div class="row spread"><span>${esc(L(x.g,'title'))}</span>${badge(x.p)}</div><div class="meter"><div style="width:${x.p}%"></div></div></li>`).join('')}</ul>`:''}
     ${S.attempts.length?`<h2>${T('Vocabulary by type','Vocabulario por tipo')}</h2><ul class="list">${by(i=>i.cat, CAT_L)}</ul><h2>${T('Vocabulary by topic','Vocabulario por tema')}</h2><ul class="list">${by(i=>i.topic, TOPIC_L)}</ul>`:''}
-    ${hard.length?`<h2>${T('Words you find hardest','Palabras que más te cuestan')}</h2><ul class="list">${hard.map(x=>`<li class="row spread"><b>${esc(x.it.word||correctText(x.it))}</b><span class="small muted">${x.s.l} ${pl(x.s.l,'mistake','mistakes','fallo','fallos')}</span></li>`).join('')}</ul>`:''}`;
+    ${hard.length?`<h2>${T('Words you find hardest','Palabras que más te cuestan')}</h2><table class="cd"><tbody>${hard.map((x,i)=>`<tr><th>${i+1}</th><td><b>${esc(x.it.word||correctText(x.it))}</b></td><td class="v">${x.s.l}<span class="small muted"> ${pl(x.s.l,'miss','misses','fallo','fallos')}</span></td></tr>`).join('')}</tbody></table>`:''}`;
 }
 
 /* ---------- Export ---------- */
@@ -1050,15 +1162,14 @@ function renderData(){
   const delta=getExport(false), n=delta.attempts.length, t=delta.tests.length, w=delta.writings.length, nn=delta.notes.length, any=n||t||w||nn;
   const seg=(key,vals,labels)=>`<div class="seg" role="group">${vals.map((v,i)=>`<button data-set="${key}" data-val="${v}" aria-pressed="${S.settings[key]===v}">${labels?labels[i]:v}</button>`).join('')}</div>`;
   return `${header()}<h1>${T('Data','Datos')}</h1>
-    <h2 style="margin-top:8px">${T('Send to Claude','Enviar a Claude')}</h2>
-    <div class="panel stack"><p style="margin:0">${any?T(`Since ${S.lastExportAt?'your last export ('+fmtDate(S.lastExportAt)+')':'the beginning'}: <b>${n}</b> exercises, <b>${t}</b> tests, <b>${w}</b> texts and <b>${nn}</b> notes.`,`Desde ${S.lastExportAt?'el último envío ('+fmtDate(S.lastExportAt)+')':'el principio'}: <b>${n}</b> ejercicios, <b>${t}</b> tests, <b>${w}</b> textos y <b>${nn}</b> apuntes.`):T('Nothing new since your last export.','No hay novedades desde el último envío.')}</p>
+    <p class="muted">${T('Your loop with Claude: send what you did, get back a new map built on your mistakes.','Tu ciclo con Claude: envías lo que has hecho y recibes un mapa nuevo hecho con tus fallos.')}</p>
+    <div class="panel stack step"><h3><span class="qn">1</span>${T('Send to Claude','Enviar a Claude')}</h3><p style="margin:0">${any?T(`Since ${S.lastExportAt?'your last export ('+fmtDate(S.lastExportAt)+')':'the beginning'}: <b>${n}</b> exercises, <b>${t}</b> tests, <b>${w}</b> texts and <b>${nn}</b> notes.`,`Desde ${S.lastExportAt?'el último envío ('+fmtDate(S.lastExportAt)+')':'el principio'}: <b>${n}</b> ejercicios, <b>${t}</b> tests, <b>${w}</b> textos y <b>${nn}</b> apuntes.`):T('Nothing new since your last export.','No hay novedades desde el último envío.')}</p>
       <button class="btn primary block" data-act="copydelta" ${any?'':'disabled'}>${T('Copy updates','Copiar novedades')}</button>
       <button class="btn block" data-act="sharedelta" ${any?'':'disabled'}>${T('Save as a file','Guardar como archivo')}</button>
       <p class="small muted" style="margin:0">${T('Paste it in the project chat. Copying it resets the counter.','Pégalo en el chat del proyecto. Al copiarlo, el contador se reinicia.')}</p>
       <button class="btn ghost block" data-go="templates">${T('Note templates','Plantillas de apuntes')}</button></div>
     <details class="panel"><summary>${T('Export your whole history','Exportar todo el historial')}</summary><p class="small muted" style="margin:10px 0">${T("For a full analysis. It doesn't reset the counter.",'Para un análisis completo. No reinicia el contador.')}</p><button class="btn block" data-act="copyfull">${T('Copy full history','Copiar historial completo')}</button></details>
-    <h2>${T('Receive from Claude','Recibir de Claude')}</h2>
-    <div class="panel stack"><textarea class="field" id="imp" placeholder="${T('Paste the JSON from Claude here (one or several packs)','Pega aquí el JSON que te dé Claude (puede ser uno o varios packs)')}" style="min-height:120px;font-size:14px"></textarea>
+    <div class="panel stack step"><h3><span class="qn">2</span>${T('Receive from Claude','Recibir de Claude')}</h3><textarea class="field" id="imp" placeholder="${T('Paste the JSON from Claude here (one or several packs)','Pega aquí el JSON que te dé Claude (puede ser uno o varios packs)')}" style="min-height:120px;font-size:14px"></textarea>
       <button class="btn primary block" data-act="import">${T('Check','Revisar')}</button>
       <label class="btn block">${T('Load .json files','Cargar archivos .json')}<input type="file" id="impfile" accept="application/json,.json,.txt" multiple hidden></label></div>
     ${pendingImport?importPreviewHTML(pendingImport):''}
@@ -1070,6 +1181,7 @@ function renderData(){
     <h2>${T('Settings','Ajustes')}</h2>
     <div class="panel stack"><div><b>${T('Language','Idioma')}</b></div><div class="seg" role="group"><button data-lang="en" aria-pressed="${LANG==='en'}">English</button><button data-lang="es" aria-pressed="${LANG==='es'}">Español</button></div>
       <p class="small muted" style="margin:0">${T('Changes the interface, theory and explanations. Exercises are always in English.','Cambia la interfaz, la teoría y las explicaciones. Los ejercicios siempre están en inglés.')}</p>
+      <div style="margin-top:14px"><b>${T('Appearance','Apariencia')}</b></div><div class="seg" role="group">${[['auto',T('Automatic','Automático')],['light',T('Light','Claro')],['dark',T('Dark','Oscuro')]].map(([v,l])=>`<button data-theme-set="${v}" aria-pressed="${(S.settings.theme||'auto')===v}">${l}</button>`).join('')}</div>
       <div style="margin-top:14px"><b>${T('Exercises per vocabulary session','Ejercicios por sesión de vocabulario')}</b></div>${seg('sessionSize',[5,10,15,20])}
       <div style="margin-top:14px"><b>${T('New words per day','Palabras nuevas al día')}</b></div>${seg('newPerDay',[5,8,12,20])}</div>
     <h2>${T('Backup','Copia de seguridad')}</h2>
@@ -1084,6 +1196,8 @@ function renderData(){
 let saveTimer=null;
 function savingLabel(done){ const sv=$('[data-saved]'); if(sv) sv.textContent=done?T('Saved','Guardado'):T('Saving…','Guardando…'); }
 function afterRender(){
+  const legs=document.querySelectorAll('.leg[data-to]');
+  if(legs.length) requestAnimationFrame(()=>requestAnimationFrame(()=>legs.forEach(l=>l.style.transform=`scaleX(${l.dataset.to})`)));
   const inp=$('#ans'); if(inp && !current?.checked) setTimeout(()=>inp.focus(), 60);
   document.querySelectorAll('textarea[data-w]').forEach(ta=>ta.addEventListener('input',()=>{
     const w=S.writings.find(x=>x.id===ta.dataset.w); if(!w) return; const p=ITEMS.get(w.promptId);
@@ -1116,7 +1230,7 @@ function playKey(key){
   speakScript(lines);
 }
 document.addEventListener('click', async e=>{
-  const t=e.target.closest('button, [data-go], tr[data-say]'); if(!t || t.disabled) return;
+  const t=e.target.closest('button, [data-go], tr[data-say], tr[data-result]'); if(!t || t.disabled) return;
   const ds=t.dataset;
   if(ds.go){ go(ds.go); return; }
   if(ds.opt!==undefined){ check(ds.opt); return; }
@@ -1131,6 +1245,7 @@ document.addEventListener('click', async e=>{
   if(ds.paper){ startPaper(ds.paper); return; }
   if(ds.result){ resultId=ds.result; go('result'); return; }
   if(ds.lang){ setLang(ds.lang); exportCache=null; save(); render(); return; }
+  if(ds.themeSet){ S.settings.theme=ds.themeSet; applyTheme(); save(); render(); return; }
   if(ds.set){ S.settings[ds.set]=+ds.val; save(); render(); return; }
   if(ds.sp){ sp={ part:+ds.sp, idx:Math.floor(Math.random()*20), end:0 }; render(); return; }
   if(ds.phrtheme!==undefined){ phrTheme=ds.phrtheme; render(); return; }
@@ -1219,4 +1334,5 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
 }
 if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
 setLang(S.settings.lang||'en');
+applyTheme();
 render();

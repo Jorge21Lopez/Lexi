@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "menlo",
+        "createdAt": "2026-10-06T14:26:50.032Z",
+        "reason": "model triage: pre.tpl shows raw note-template text to copy into the Claude chat; a monospace stack is the right face for literal template text, not a brand font"
+      }
+    ]
+  }
+}
