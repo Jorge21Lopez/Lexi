@@ -2,6 +2,7 @@
 
 App para preparar el **Cambridge B1 Preliminary (PET)** y dar el salto a **B2**.
 Incluye vocabulario con repetición espaciada, phrasal verbs en contexto, apuntes propios, plantillas y recursos de writing, libro de gramática, verbos irregulares, phrasal verbs, guías del examen, tests por temas, práctica por partes, simulacros cronometrados (Reading, Listening, Use of English B2, Writing) y práctica de Speaking.
+La app está en inglés por defecto, con selector de idioma (EN/ES) en Datos y en la cabecera.
 Funciona sin conexión, guarda todo en tu móvil y se corrige junto con Claude mediante exportaciones.
 
 ## 1. Publicarla gratis (una sola vez, unos 10 minutos)
@@ -65,6 +66,8 @@ Sustituye los archivos en GitHub (Add file → Upload files) y sube el número d
   "message": "Nota que aparece en la pantalla de inicio."
 }
 ```
+
+**Bilingüe:** cada texto explicativo lleva versión inglesa con sufijo `_en` (`exp_en`, `hint_en`, `title_en`, `html_en`, `e_en`, `q_en`, `stem_en`, `instructions_en`; en phrasal, `en`). Ver `lexi-prompt-formatos.md`, sección 1b.
 
 Un pack con el mismo `id` sustituye al anterior (`mode: "replace"`, por defecto) o se fusiona con él (`mode: "merge"`: añade y actualiza por id sin borrar lo demás). Se pueden pegar varios packs a la vez (lista JSON o uno detrás de otro). Un elemento con el mismo `id` que uno del banco base lo sobrescribe.
 

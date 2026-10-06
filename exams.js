@@ -185,7 +185,7 @@ The place I like best in my town is a small park [27] the river. It isn't very b
   { n:30, kind:'text', answers:['that','which'] },{ n:31, kind:'text', answers:['with','in'] },{ n:32, kind:'text', answers:['should','must'] }]},
 
 /* ===================== LISTENING PET ===================== */
-{ id:'l1p1', section:'listening', paper:'pet-l1', part:1, title:'Listening Part 1', instructions:'For each question, choose the correct answer. (En el examen real eliges entre tres imágenes.)',
+{ id:'l1p1', section:'listening', paper:'pet-l1', part:1, title:'Listening Part 1', instructions:'For each question, choose the correct answer. (In the real exam you choose from three pictures.)',
   questions:[
   { n:1, stem:'What time does the film start?', kind:'mcq', options:['7:00','7:15','7:30'], answer:'7:30',
     audio:[['A','Shall we meet at seven? The film starts at quarter past.'],['B',"Actually, I checked this morning – they've changed it. It starts at half past seven now."],['A',"Oh, OK. Then let's meet at quarter past seven outside the cinema."]] },

@@ -60,7 +60,7 @@ test:[
 <p><b>been vs gone</b>: He's <b>been</b> to Paris (fue y volvió). He's <b>gone</b> to Paris (está allí ahora).</p>
 <p class="tip">B2: present perfect continuous para duración de actividades: I've been waiting for an hour.</p>`,
 test:[
-{q:'I ___ this film three times.',o:["'ve seen",'saw','see','was seeing'],a:"'ve seen"},
+{q:'I ___ this film three times so far.',o:["'ve seen",'saw','see','was seeing'],a:"'ve seen"},
 {q:'We ___ to Italy last summer.',o:['went','have gone','have been','go'],a:'went'},
 {q:'She has lived here ___ 2018.',o:['since','for','from','during'],a:'since'},
 {q:"I've known him ___ ten years.",o:['for','since','during','ago'],a:'for'},
@@ -190,7 +190,7 @@ test:[
 {q:'The new bridge ___ next year.',o:['will be built','will build','is built','builds'],a:'will be built'},
 {q:"The concert has ___ cancelled because of the storm.",o:['been','be','being','was'],a:'been'},
 {q:'Rice ___ (grow) in many parts of Asia.',a:['is grown']},
-{q:'The window was broken ___ a football.',o:['by','with','from','of'],a:'by'}]},
+{q:'The Mona Lisa was painted ___ Leonardo da Vinci.',o:['by','with','from','of'],a:'by'}]},
 
 { id:'g-reported', title:'Estilo indirecto (reported speech)', level:'B1', html:`
 <p>Al contar lo que alguien dijo, los tiempos suelen "retroceder" un paso:</p>
@@ -369,7 +369,7 @@ test:[
 {q:'How ___ does it take to get there?',o:['long','much','many','far'],a:'long'},
 {q:'I wonder what time ___.',o:['it is','is it','does it','it does'],a:'it is'}]},
 
-{ id:'g-b2-causative', title:'B2: causativa, wish e inversión básica', level:'B2', html:`
+{ id:'g-b2-causative', title:'B2: causativa, wish y estructuras clave', level:'B2', html:`
 <h4>Causativa: have/get something done</h4>
 <p>Cuando otra persona hace algo por ti: I <b>had my hair cut</b>. We're <b>getting the car repaired</b>.</p>
 <h4>Wish / If only</h4>

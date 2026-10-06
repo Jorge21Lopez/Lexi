@@ -1,7 +1,7 @@
 // Service worker de Lexi: permite usar la app sin conexión.
 // Al actualizar la app, sube el número de VERSION para que los móviles descarguen lo nuevo.
-const VERSION = 'lexi-3.0.0';
-const SHELL = ['./', './index.html', './app.js', './content.js', './grammar.js', './guides.js', './exams.js', './phrasal.js', './writing.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
+const VERSION = 'lexi-4.0.0';
+const SHELL = ['./', './index.html', './app.js', './content.js', './grammar.js', './guides.js', './exams.js', './phrasal.js', './writing.js', './content_en.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

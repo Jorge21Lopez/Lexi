@@ -1,8 +1,8 @@
 {
-  "name": "Lexi: vocabulario de inglés",
+  "name": "Lexi: English for PET and B2",
   "short_name": "Lexi",
-  "description": "Vocabulario para el B1 Preliminary y el salto a B2, con repetición espaciada.",
-  "lang": "es",
+  "description": "Vocabulary, grammar, tests and mock exams for B1 Preliminary (PET) and B2 First.",
+  "lang": "en",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
