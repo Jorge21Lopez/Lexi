@@ -1,0 +1,58 @@
+# Publica Lexi en GitHub Pages en cada push a main.
+# No hay build: copia los ficheros de la app y pone en sw.js una VERSION nueva
+# (basada en el commit) para que los móviles descarguen siempre lo último.
+name: Deploy a GitHub Pages
+
+on:
+  push:
+    branches: ['main']
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+
+      - name: Preparar la web
+        run: |
+          mkdir _site
+          rsync -a --exclude '.git' --exclude '.github' --exclude '_site' --exclude '*.md' ./ _site/
+
+      - name: Versión automática del service worker
+        run: |
+          V="lexi-${GITHUB_SHA::7}"
+          sed -i -E "s/^const VERSION = '[^']*';/const VERSION = '${V}';/" _site/sw.js
+          grep -q "^const VERSION = '${V}';" _site/sw.js || { echo "No se encontró la línea VERSION en sw.js"; exit 1; }
+          echo "VERSION = ${V}"
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: ./_site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

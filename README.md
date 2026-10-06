@@ -10,7 +10,7 @@ Funciona sin conexión, guarda todo en tu móvil y se corrige junto con Claude m
 1. Crea una cuenta en https://github.com (gratis).
 2. Pulsa **New repository**. Nombre: `lexi`. Marca **Public**. Pulsa **Create repository**.
 3. En el repositorio vacío, pulsa **uploading an existing file** y arrastra **todos los archivos de esta carpeta** (no la carpeta, su contenido). Pulsa **Commit changes**.
-4. Ve a **Settings → Pages**. En *Source* elige **Deploy from a branch**, rama **main**, carpeta **/ (root)**. Pulsa **Save**.
+4. Ve a **Settings → Pages**. En *Source* elige **GitHub Actions** (el workflow `.github/workflows/deploy.yml` hace el resto). Si subes los archivos por la web, incluye también la carpeta `.github`.
 5. Espera 1–2 minutos. Tu app estará en `https://TU-USUARIO.github.io/lexi/`.
 
 ## 2. Instalarla en el móvil
@@ -35,7 +35,9 @@ Una vez al mes, descarga también una **copia de seguridad** (Datos). Tus datos 
 
 ## 4. Actualizar la app
 
-Sustituye los archivos en GitHub (Add file → Upload files) y sube el número de `VERSION` en `sw.js`. Tus datos no se tocan.
+Haz commit y push a `main` (o sube los archivos con Add file → Upload files). GitHub Actions publica la app sola en 1–2 minutos y pone una `VERSION` nueva en `sw.js`, así que los móviles descargan lo último sin que toques nada. Tus datos no se tocan.
+
+Configuración (una sola vez): **Settings → Pages → Source: GitHub Actions**. El progreso de cada despliegue se ve en la pestaña **Actions**.
 
 ---
 

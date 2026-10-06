@@ -1,5 +1,6 @@
 // Service worker de Lexi: permite usar la app sin conexión.
-// Al actualizar la app, sube el número de VERSION para que los móviles descarguen lo nuevo.
+// VERSION la sustituye automáticamente el workflow de despliegue (.github/workflows/deploy.yml)
+// por una basada en el commit; no hace falta tocarla a mano.
 const VERSION = 'lexi-4.0.0';
 const SHELL = ['./', './index.html', './app.js', './content.js', './grammar.js', './guides.js', './exams.js', './phrasal.js', './writing.js', './content_en.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
