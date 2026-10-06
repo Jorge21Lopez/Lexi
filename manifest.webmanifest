@@ -1,0 +1,16 @@
+{
+  "name": "Lexi: vocabulario de inglés",
+  "short_name": "Lexi",
+  "description": "Vocabulario para el B1 Preliminary y el salto a B2, con repetición espaciada.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EEF1F5",
+  "theme_color": "#0F766E",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
