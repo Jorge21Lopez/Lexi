@@ -32,7 +32,7 @@ jobs:
       - name: Preparar la web
         run: |
           mkdir _site
-          rsync -a --exclude '.git' --exclude '.github' --exclude '_site' --exclude '*.md' ./ _site/
+          rsync -a --exclude '.git' --exclude '.github' --exclude '_site' --exclude 'tests' --exclude '*.md' ./ _site/
 
       - name: Versión automática del service worker
         run: |
