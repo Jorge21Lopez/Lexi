@@ -29,14 +29,19 @@ function v5State(){
     srs[id] = { e:2.5, i:1, r:1, l:i%2, first:NOW-2*DAY, last:NOW-DAY, due:NOW+DAY };
     attempts.push({ id, t:NOW-DAY, r:i%2?'bad':'ok', ms:5000, a:'x' });
   }
+  // A phrasal verb learnt in v6 daily sessions (auto item) and a mature vocabulary item
+  srs['ph-give-up'] = { e:2.6, i:8, r:4, l:1, first:NOW-20*DAY, last:NOW-3*DAY, due:NOW+5*DAY };
+  attempts.push({ id:'ph-give-up', t:NOW-3*DAY, r:'ok', ms:4000, a:'gave up', f:'gap_hint' });
+  srs['m04'] = { e:2.7, i:25, r:6, l:0, first:NOW-60*DAY, last:NOW-10*DAY, due:NOW+15*DAY };
   return {
-    v:2, createdAt:NOW-3*DAY, srs, attempts, writings:[], packs:[PACK], exports:[], lastExportAt:0,
+    v:2, createdAt:NOW-3*DAY, srs, attempts, packs:[PACK], exports:[], lastExportAt:0,
+    writings:[{ id:'w1', promptId:'free', title:'My weekend', text:'Last weekend I went to the beach with my friends.', status:'done', createdAt:NOW-2*DAY, updatedAt:NOW-2*DAY, feedback:null }],
     daily:{ '2026-10-06':{ n:5, ok:3, nw:5 } }, session:{ q:['m01','m02'], i:1, retried:[], results:[{ id:'m01', r:'ok' }], started:NOW-DAY, answered:-1 },
     messages:[{ at:NOW-DAY, text:'Hello from Claude', read:false }],
     settings:{ sessionSize:10, newPerDay:12, lang:'en', theme:'auto' },
     tests:[{ id:'t1', kind:'topic', ref:'g-pack-1', title:'Test: Articles', mode:'practice', section:'grammar', at:NOW-DAY, durationSec:60, score:1, max:2,
       parts:[{ task:'topic-g-pack-1', part:null, title:'Articles', score:1, max:2 }], detail:[{ task:'topic-g-pack-1', part:null, n:2, stem:'I need some ___', given:'advices', correct:'advice', r:'bad' }], tasks:['topic-g-pack-1'], auto:false }],
-    run:null, wmock:null, read:{ 'g-pack-1':NOW-DAY }, irr:{ go:2 }, speak:{}, phr:{}, rawNotes:[],
+    run:null, wmock:null, read:{ 'g-pack-1':NOW-DAY }, irr:{ go:2 }, speak:{}, phr:{ 'put off':3 }, rawNotes:[],
   };
 }
 

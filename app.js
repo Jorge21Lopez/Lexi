@@ -1,6 +1,6 @@
 'use strict';
 /* Lexi: English for PET (B1) and B2 First. Everything is stored locally on the device. */
-const APP_VERSION = '6.0.0';
+const APP_VERSION = '7.0.0';
 const KEY = 'lexi:v1';
 const DAY = 864e5;
 
@@ -23,21 +23,51 @@ const PARTS = { reading:6, listening:4, uoe:4 };
 
 /* ---------- State ---------- */
 function defaultState(){
-  return { v:2, createdAt:Date.now(), srs:{}, attempts:[], writings:[], packs:[], exports:[], lastExportAt:0,
-    daily:{}, session:null, messages:[], settings:{ sessionSize:10, newPerDay:12, lang:'en', theme:'auto', grammarDaily:true, grammarAll:false, mix:{ n:20, level:'all', focus:'balanced', timer:false } },
-    tests:[], run:null, wmock:null, read:{}, irr:{}, speak:{}, phr:{}, rawNotes:[], challenges:{ daily:{}, best:{}, hist:[] }, lesson:null };
+  return { v:3, createdAt:Date.now(), srs:{}, units:{}, attempts:[], writings:[], packs:[], exports:[], lastExportAt:0,
+    daily:{}, session:null, messages:[], settings:{ sessionSize:10, newPerDay:12, dailySize:25, newItems:10, mixPreset:'balanced', mixShares:null, lang:'en', theme:'auto', grammarDaily:true, grammarAll:false,
+      mix:{ n:20, level:'all', focus:'balanced', timer:false }, libtest:{ lib:'pv', n:10, scope:'all', mode:'mixed', theme:'' } },
+    tests:[], run:null, wmock:null, read:{}, irr:{}, speak:{}, phr:{}, rawNotes:[], challenges:{ daily:{}, best:{}, hist:[] }, lesson:null, learnList:[], libHist:{}, prod:[] };
 }
-// Older states (v5 and before) load as they are; fields added later get their defaults
+// Older states load as they are; fields added later get their defaults, and v2 states (Lexi 6 and before) are migrated to units
 function load(){
   try{ const raw = localStorage.getItem(KEY); if(!raw) return defaultState();
     return upgrade(JSON.parse(raw));
   }catch(e){ return defaultState(); }
 }
 function upgrade(s){
-  const d = defaultState();
+  const d = defaultState(), from = s.v || 1;
   if(s.session && !s.session.mode) s.session.mode='daily';
-  return Object.assign(d, s, { settings:Object.assign(d.settings, s.settings||{}, { mix:Object.assign(d.settings.mix, s.settings?.mix||{}) }),
+  const st = Object.assign(d, s, { settings:Object.assign(d.settings, s.settings||{}, { mix:Object.assign(d.settings.mix, s.settings?.mix||{}), libtest:Object.assign(d.settings.libtest, s.settings?.libtest||{}) }),
     challenges:Object.assign(d.challenges, s.challenges||{}) });
+  if(from<3) migrateUnits(st, s.settings||{});
+  return st;
+}
+// Schema v2 → v3: the history of each item becomes the learning state of its unit. S.srs, S.phr, S.irr and the attempts stay as they were.
+function migrateUnits(st, oldSettings){
+  const ph=new Map();
+  for(const p of [...(window.LEXI_PHRASAL||[]), ...st.packs.flatMap(p=>p.phrasal||[])]) if(p && p.v) ph.set('ph-'+p.v.toLowerCase().replace(/[^a-z]+/g,'-'), p.v);
+  const uidOf=id=>id.startsWith('ph-') ? (ph.has(id) ? 'pv:'+ph.get(id) : null) : id.startsWith('gq:') ? 'gr:'+id.slice(3) : id.startsWith('irr:') ? 'irr:'+id.split(':')[1] : 'voc:'+id;
+  const att={}; for(const a of st.attempts||[]) (att[a.id]||(att[a.id]=[])).push(a);
+  const units=st.units||{}, now=Date.now();
+  for(const [id, r] of Object.entries(st.srs||{})){
+    const uid=uidOf(id); if(!uid || !r) continue;
+    const as=att[id]||[], bySkill={};
+    for(const a of as){ const k=a.f==='mcq' ? 'recognise' : 'produce'; (bySkill[k]||(bySkill[k]={ n:0, ok:0 })); bySkill[k].n++; if(a.r!=='bad') bySkill[k].ok++; }
+    const stage = !r.r ? 1 : r.i<3 ? 2 : r.i<10 ? 3 : r.i<21 ? 4 : 5;
+    const u={ stage, due:r.due||now, interval:r.i||0, ease:r.e||2.5, reps:r.r||0, seen:as.length||((r.r||0)+(r.l||0))||1, correct:as.filter(a=>a.r!=='bad').length||r.r||0, lapses:r.l||0,
+      lastSeen:r.last||0, lastOk:r.r>0?(r.last||0):0, lastBad:!r.r && r.l>0?(r.last||0):0, lastFormats:as.slice(-5).map(a=>a.f||'gap'), bySkill, okSkills:[], introduced:null, first:r.first||r.last||now };
+    const prev=units[uid];
+    if(prev){ prev.stage=Math.min(prev.stage, u.stage); prev.due=Math.min(prev.due, u.due); prev.seen+=u.seen; prev.correct+=u.correct; prev.lapses+=u.lapses; prev.lastSeen=Math.max(prev.lastSeen, u.lastSeen); }
+    else units[uid]=u;
+  }
+  // Mistakes in the phrasal-verb and irregular-verb tests count as lapses
+  for(const [key, prefix] of [['phr','pv:'],['irr','irr:']]) for(const [v,n] of Object.entries(st[key]||{})){ if(!n) continue; const uid=prefix+v;
+    if(units[uid]) units[uid].lapses=Math.max(units[uid].lapses, n);
+    else units[uid]={ stage:1, due:now, interval:0, ease:2.3, reps:0, seen:n, correct:0, lapses:n, lastSeen:0, lastOk:0, lastBad:0, lastFormats:[], bySkill:{}, okSkills:[], introduced:null, first:now }; }
+  st.units=units; st.v=3;
+  const near=(v, opts)=>opts.reduce((b,x)=>Math.abs(x-v)<Math.abs(b-v)?x:b, opts[0]);
+  st.settings.dailySize = (oldSettings.sessionSize||10)<=10 ? 15 : 25;
+  st.settings.newItems = near(oldSettings.newPerDay||10, [5,10,15,20,30]);
 }
 let saveFail=false;
 function save(){
@@ -54,9 +84,10 @@ function setLang(l){
 /* ---------- Content ---------- */
 let ITEMS, TASKS, PAPERS, PAGES, GRAMMAR, PHRASAL;
 const PH_TOPIC = { rutina:'house', relaciones:'relationships', viajes:'travel', trabajo:'work', problemas:'general', comunicacion:'general', dinero:'money', salud:'health', ocio:'freetime' };
-const PACK_KEYS = ['items','tasks','papers','pages','grammar','phrasal'];
-const PACK_L = { items:['vocabulary exercises','ejercicios de vocabulario'], tasks:['exam tasks','tareas de examen'], papers:['mock exams','simulacros'], pages:['pages','páginas'], grammar:['grammar topics','temas de gramática'], phrasal:['phrasal verbs','phrasal verbs'] };
-const keyOf = (k,x) => k==='phrasal' ? x.v : x.id;
+const PACK_KEYS = ['items','tasks','papers','pages','grammar','phrasal','connectors','collocations','families','transformations'];
+const PACK_L = { items:['vocabulary exercises','ejercicios de vocabulario'], tasks:['exam tasks','tareas de examen'], papers:['mock exams','simulacros'], pages:['pages','páginas'], grammar:['grammar topics','temas de gramática'], phrasal:['phrasal verbs','phrasal verbs'],
+  connectors:['connectors','conectores'], collocations:['collocations','collocations'], families:['word families','familias de palabras'], transformations:['transformations','transformaciones'] };
+const keyOf = (k,x) => k==='phrasal' ? x.v : k==='connectors' ? x.w : k==='collocations' ? x.c : k==='families' ? x.base : x.id;
 const phId = v => 'ph-'+v.toLowerCase().replace(/[^a-z]+/g,'-');
 const meaning = p => LANG==='en' ? (p.en||p.es) : (p.es||p.en);
 function withEn(o, en, map){ if(!en) return o; const x=Object.assign({}, o); for(const [from,to] of map) if(en[from]!=null && x[to]==null) x[to]=en[from]; return x; }
@@ -80,25 +111,27 @@ function rebuild(){
     for(const x of (p.grammar||[])) GRAMMAR.set(x.id, x);
     for(const x of (p.phrasal||[])) PHRASAL.set(x.v, Object.assign({ theme:'otros', level:'B1' }, x, { pack:p.id }));
   }
-  // Every phrasal verb also becomes a gap exercise in context for the daily sessions
+  // v6 turned every phrasal verb into a gap item (ph-…). They stay as hidden items so the old history keeps a name; v7 practises the unit pv:<verb>
   for(const p of PHRASAL.values()){
     const ex=(p.ex||[]).find(e=>(e.match(/\*/g)||[]).length===2); if(!ex) continue;
     const id=phId(p.v); if(ITEMS.has(id)) continue;
     const other=(p.ex||[]).find(e=>e!==ex), oth=other?other.replace(/\*/g,''):'';
     const es=p.es||p.en, en=p.en||p.es;
-    ITEMS.set(id, { id, type:'gap', cat:'phrasal', level:p.level||'B1', topic:PH_TOPIC[p.theme]||'general', word:p.v,
+    ITEMS.set(id, { id, type:'gap', cat:'phrasal', virtual:'ph', level:p.level||'B1', topic:PH_TOPIC[p.theme]||'general', word:p.v,
       prompt:ex.replace(/\*([^*]+)\*/,'___'), answers:[ex.match(/\*([^*]+)\*/)[1]], hintAlways:true, auto:true,
       hint:`${p.v}: ${es}`, hint_en:`${p.v}: ${en}`,
       exp:`${p.v} = ${es}.${p.sep?' Separable.':''}${oth?' Otro ejemplo: '+oth:''}`,
       exp_en:`${p.v} = ${en}.${p.sep?' Separable.':''}${oth?' Another example: '+oth:''}` });
   }
   addVirtualItems();
+  buildUnits();
 }
 const SP_EN = window.LEXI_EN?.speaking||[];
 (window.LEXI_SPEAKING?.part3||[]).forEach((x,i)=>{ if(SP_EN[i]) x.title_en=SP_EN[i]; });
 rebuild();
+upgradeSession();
 
-let view='home', current=null, editing=null, exportCache=null, pageRef=null, resultId=null, sp=null, irrFilter='', phrFilter='', phrTheme='', pendingImport=null, noteId=null, openPack=null;
+let view='home', current=null, editing=null, exportCache=null, pageRef=null, resultId=null, sp=null, pendingImport=null, noteId=null, openPack=null;
 
 /* ---------- Utilities ---------- */
 const $ = s => document.querySelector(s);
@@ -201,66 +234,10 @@ function speakScript(lines, rate=0.92){
 }
 function stopSpeech(){ if('speechSynthesis' in window) speechSynthesis.cancel(); }
 
-/* ---------- Spaced repetition (vocabulary) ---------- */
-function schedule(id, result){
-  const now=Date.now(); const isNew=!S.srs[id];
-  const s=S.srs[id] || { e:2.5, i:0, r:0, l:0, first:now };
-  if(result==='bad'){ s.l++; s.r=0; s.i=0; s.e=Math.max(1.3, s.e-0.2); s.due=now+10*60000; }
-  else {
-    s.r++; s.i = s.r===1 ? 1 : s.r===2 ? 3 : Math.round(Math.max(1,s.i)*s.e);
-    if(result==='near'){ s.e=Math.max(1.3, s.e-0.15); s.i=Math.max(1, Math.round(s.i*0.6)); } else s.e=Math.min(3, s.e+0.05);
-    s.due = startOfDay(now) + s.i*DAY + 4*3600e3;
-  }
-  s.last=now; S.srs[id]=s; return isNew;
-}
+/* ---------- Daily counters (learning state per unit lives in engine.js) ---------- */
 function today(){ const k=dayKey(); return S.daily[k] || (S.daily[k]={ n:0, ok:0, nw:0 }); }
-// The vocabulary bank: what counts as words learnt, seen and new
-function practiceItems(){ return [...ITEMS.values()].filter(i=>i.type!=='writing' && !i.retired && !i.virtual); }
-// What the daily sessions review: the vocabulary bank plus grammar questions when that setting is on
-function srsPool(){ const g=S.settings.grammarDaily; return [...ITEMS.values()].filter(i=>i.type!=='writing' && !i.retired && (!i.virtual || (g && i.virtual==='gq'))); }
-// New grammar questions only come from topics already read (or from any topic if the setting allows it)
-function grammarNew(){ if(!S.settings.grammarDaily) return []; return shuffle([...ITEMS.values()].filter(i=>i.virtual==='gq' && !i.retired && !S.srs[i.id] && (S.settings.grammarAll || S.read[i.gtopic]))); }
-function counts(){
-  const now=Date.now(), items=practiceItems();
-  const due=srsPool().filter(i=>S.srs[i.id] && S.srs[i.id].due<=now).length;
-  const unseen=items.filter(i=>!S.srs[i.id]).length;
-  const newLeft=Math.max(0, S.settings.newPerDay - (S.daily[dayKey()]?.nw||0));
-  const learned=items.filter(i=>S.srs[i.id] && S.srs[i.id].i>=3).length;
-  const mastered=items.filter(i=>S.srs[i.id] && S.srs[i.id].i>=21).length;
-  return { due, unseen, newAvail:Math.min(unseen+grammarNew().length,newLeft), learned, mastered, total:items.length, streak:streak() };
-}
 function activeDay(k){ return (S.daily[k]?.n||0) + (S.daily[k]?.t||0) > 0; }
 function streak(){ let n=0, t=Date.now(); if(!activeDay(dayKey(t))) t-=DAY; while(activeDay(dayKey(t))){ n++; t-=DAY; } return n; }
-const RECENT=3*3600e3, GRAMMAR_SHARE=0.25;
-// Takes one of each category in turn, keeping the order inside each category, so a session never fills up with a single kind
-function byTurns(list){
-  const groups=new Map(); for(const it of list){ if(!groups.has(it.cat)) groups.set(it.cat,[]); groups.get(it.cat).push(it); }
-  const out=[]; while(out.length<list.length) for(const g of groups.values()) if(g.length) out.push(g.shift());
-  return out;
-}
-function freshItems(items){
-  const fresh=items.filter(i=>!S.srs[i.id]);
-  const packs=shuffle(fresh.filter(i=>i.pack)), b1=shuffle(fresh.filter(i=>!i.pack && i.level!=='B2')), b2=shuffle(fresh.filter(i=>!i.pack && i.level==='B2'));
-  const base=[]; while(b1.length||b2.length){ for(let k=0;k<3&&b1.length;k++) base.push(b1.shift()); if(b2.length) base.push(b2.shift()); }
-  return [...byTurns(packs), ...byTurns(base)];
-}
-// mode: 'daily' (reviews due + new up to the daily limit), 'extra' (seen items not got right in the last 3 hours), 'new' (only new ones)
-function buildQueue(size, mode){
-  const now=Date.now(), pool=srsPool();
-  if(mode==='extra') return shuffle(pool.filter(i=>{ const s=S.srs[i.id]; return s && !(s.r>0 && s.last>now-RECENT); })
-    .sort((a,b)=>S.srs[a.id].due-S.srs[b.id].due).slice(0,size).map(i=>i.id));
-  if(mode==='new') return freshItems(practiceItems()).slice(0,size).map(i=>i.id);
-  const due=byTurns(pool.filter(i=>S.srs[i.id] && S.srs[i.id].due<=now).sort((a,b)=>S.srs[a.id].due-S.srs[b.id].due));
-  let q = due.slice(0,size).map(i=>i.id);
-  const room=Math.min(size-q.length, Math.max(0, S.settings.newPerDay - today().nw));
-  if(room>0){
-    // About a quarter of the new ones are grammar questions; whatever one side lacks, the other fills
-    const gram=grammarNew().map(i=>i.id), voc=freshItems(practiceItems()).map(i=>i.id);
-    const g=Math.min(gram.length, Math.max(Math.round(room*GRAMMAR_SHARE), room-voc.length));
-    q = q.concat(gram.slice(0,g), voc.slice(0, room-g));
-  }
-  return shuffle(q);
-}
 function grade(item, ans){
   if(item.type==='mcq') return ans===item.answer ? 'ok' : 'bad';
   if(item.type==='dictation'){
@@ -276,48 +253,19 @@ function grade(item, ans){
   return 'bad';
 }
 function correctText(item){ return item.type==='mcq' ? item.answer : item.type==='dictation' ? item.text : (item.answers||[])[0]||''; }
-function startSession(size, mode='daily'){
-  let q=buildQueue(size, mode);
-  if(!q.length && mode==='extra'){ q=buildQueue(size, 'new'); mode='new';
-    if(q.length) toast(T("You've reviewed everything recently: here are some new words.",'Ya lo has repasado todo hace poco: aquí tienes palabras nuevas.'));
-    else { toast(T("You've reviewed everything recently: here is a mixed test.",'Ya lo has repasado todo hace poco: aquí tienes un test mixto.')); startMixed(); return; } }
-  if(!q.length){ toast(T('No exercises available right now.','No hay ejercicios disponibles ahora mismo.')); return; }
-  const ar=arrangeQueue(q);
-  S.session={ q:ar.q, fmt:ar.fmt, i:0, retried:[], results:[], started:Date.now(), answered:-1, mode }; current=null; trackPos=0; save(); go('session');
-}
-const RETRY_MODES=['daily','extra','new'];
-function check(ans){
-  const ss=S.session; if(!current || current.checked || !ss) return;
-  const base=ITEMS.get(current.id), item=current.card, res=grade(item, ans), ms=Date.now()-current.start;
-  current.checked=true; current.result=res; current.answer=ans; ss.answered=ss.i;
-  const isNew=updatesSrs(ss, base) ? schedule(item.id, res) : false;
-  if(base.virtual==='irr') S.irr[base.verb]=Math.max(0,(S.irr[base.verb]||0)+(res==='ok'?-1:2));
-  if(base.auto && base.cat==='phrasal' && !RETRY_MODES.includes(ss.mode)) S.phr[base.word]=Math.max(0,(S.phr[base.word]||0)+(res==='ok'?-1:2));
-  const d=today(); d.n++; if(res!=='bad') d.ok++; if(isNew) d.nw++;
-  const hint=!!L(item,'hint') && !!(current.showHint || item.hintAlways);
-  S.attempts.push({ id:item.id, t:Date.now(), r:res, ms, a:String(ans||'').slice(0,300), f:item.format, m:ss.mode, h:hint?1:0 });
-  ss.results.push({ id:item.id, r:res, a:String(ans||'').slice(0,300), c:correctText(item), f:item.format, q:questionText(item).slice(0,200) });
-  if(res==='bad' && RETRY_MODES.includes(ss.mode) && !ss.retried.includes(item.id)){ ss.retried.push(item.id); ss.q.splice(retryPos(ss, item.id), 0, item.id); }
-  if(res==='bad' && ss.ch==='sudden') ss.q=ss.q.slice(0, ss.i+1);
-  exportCache=null; save(); render();
-  if(res==='bad'){ $('.card')?.classList.add('shake'); buzz([30,40,30]); } else buzz(12);
-  if(item.type!=='mcq') setTimeout(()=>$('#next')?.focus(), 50);
-}
-function next(){ const ss=S.session; if(!ss) return; ss.i++; current=null; if(ss.i>=ss.q.length) finishQuiz(ss); save(); render(); }
-
 /* ---------- Rendering ---------- */
 const FOCUS = ['session','run','wmock'];
 function go(v){
   const swap=()=>{ view=v; stopSpeech(); window.scrollTo(0,0); render(); };
   if(document.startViewTransition && !reduced() && v!==view) document.startViewTransition(swap); else swap();
 }
-const TAB_OF = { item:'home', mistakes:'home', templates:'study', note:'study', home:'home', session:'home', progress:'home', study:'study', page:'study', speak:'study', tests:'tests', run:'tests', result:'tests', writing:'writing', write:'writing', wmock:'writing', data:'data' };
+const TAB_OF = { item:'home', mistakes:'home', templates:'study', note:'study', home:'home', session:'home', progress:'home', study:'study', page:'study', speak:'study', library:'study', unit:'study', learn:'study', tests:'tests', run:'tests', result:'tests', writing:'writing', write:'writing', wmock:'writing', data:'data' };
 function render(){
   document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-current', b.dataset.go===TAB_OF[view] ? 'page' : 'false'));
   $('#tabs').classList.toggle('hidden', FOCUS.includes(view));
   $('#app').classList.toggle('focus', FOCUS.includes(view));
   const fn={ home:renderHome, session:renderSession, progress:renderProgress, study:renderStudy, page:renderPage, speak:renderSpeak,
-    tests:renderTests, run:renderRun, templates:renderTemplates, note:renderNote, result:renderResult, writing:renderWriting, write:renderWrite, wmock:renderWMock, data:renderData, item:renderItem, mistakes:renderMistakes }[view] || renderHome;
+    tests:renderTests, run:renderRun, templates:renderTemplates, note:renderNote, result:renderResult, writing:renderWriting, write:renderWrite, wmock:renderWMock, data:renderData, item:renderItem, mistakes:renderMistakes, library:renderLibrary, unit:renderUnit, learn:renderLearn }[view] || renderHome;
   $('#app').innerHTML = fn();
   afterRender();
 }
@@ -346,68 +294,6 @@ function weekHTML(){
 }
 
 /* ---------- Home ---------- */
-function renderHome(){
-  const c=counts(), ss=S.session, size=S.settings.sessionSize, d=today();
-  const pending=ss && ss.i<ss.q.length;
-  const unread=S.messages.filter(m=>!m.read).slice(-1)[0];
-  const since=S.attempts.filter(a=>a.t>S.lastExportAt).length + S.tests.filter(t=>t.at>S.lastExportAt).length*5;
-  const daysSinceExport=S.lastExportAt ? Math.floor((Date.now()-S.lastExportAt)/DAY) : null;
-  const sug=suggestTest();
-  // A leg is 'done' only when something was really done today; nothing to do = 'none' (off today's course)
-  const revState = pending || c.due>0 ? 'open' : (d.n-d.nw)>0 ? 'done' : 'none';
-  const newState = pending || c.newAvail>0 ? 'open' : d.nw>0 ? 'done' : 'none';
-  const testState = (d.t||0)>0 ? 'done' : 'open';
-  const legs=[revState,newState,testState], closed=legs.every(x=>x!=='open'), all=closed && activeDay(dayKey());
-  let reach=0; for(const x of legs){ if(x==='open') break; reach++; }
-  if(!legs.slice(0,reach).includes('done')) reach=0;
-  const revDone=revState!=='open', newDone=newState!=='open', testDone=testState==='done';
-  const tick=st=>st==='done'?ic('check'):'';
-  const startAct=`data-act="${pending?'resume':'start'}"`;
-  const course=`<div class="course">${legHTML(0, all?1:reach/4)}
-      ${ctrlHTML({ cls:'start', mark:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 21 19.5H3z" fill="none" stroke="var(--course)" stroke-width="3" stroke-linejoin="round"/></svg>', label:T('Start','Salida') })}
-      ${ctrlHTML({ state:revState, num:1, mark:tick(revState), label:revState==='none'?T('None due','Sin repasos'):T('Review','Repaso'), attr:revState==='open'?startAct:'' })}
-      ${ctrlHTML({ state:newState, num:2, mark:tick(newState), label:newState==='none'?T('None left','Sin nuevas'):T('New','Nuevas'), attr:newState==='open'?startAct:'' })}
-      ${ctrlHTML({ state:testState, num:3, mark:tick(testState), label:'Test', attr:testState==='open'?sug.attr:'' })}
-      ${ctrlHTML({ cls:'finish', state:all?'done':'', label:T('Finish','Meta') })}</div>`;
-  const table=`<table class="cd"><tbody>
-      <tr><th>1</th><td class="sym"><i class="sw open"></i></td><td>${T('Reviews due','Repasos pendientes')}</td><td class="v">${c.due||'–'}</td></tr>
-      <tr><th>2</th><td class="sym"><i class="sw open"></i></td><td>${T('New words','Palabras nuevas')}</td><td class="v">${c.newAvail||'–'}</td></tr>
-      <tr><th>3</th><td class="sym">${ic('flag')}</td><td>${esc(sug.label)}</td><td class="v">${testDone?ic('check','sm'):'Test'}</td></tr></tbody></table>`;
-  let title, lead, go;
-  if(pending){
-    title=T('Session in progress','Sesión a medias'); lead=T(`You're on exercise ${ss.i+1} of ${ss.q.length}.`,`Vas por el ejercicio ${ss.i+1} de ${ss.q.length}.`);
-    go=`<button class="btn primary big block" data-act="resume">${T('Continue','Continuar')} ${ic('go')}</button><button class="btn ghost block" data-act="discard">${T('Discard and start a new one','Descartar y empezar otra')}</button>`;
-  } else if(c.due+c.newAvail>0){
-    title=T("Today's course",'Recorrido de hoy'); lead=T(`Sessions of ${size} exercises. You can stop halfway whenever you like.`,`Sesiones de ${size} ejercicios. Puedes dejarlas a medias cuando quieras.`);
-    go=`<button class="btn primary big block" data-act="start">${T('Go','Salir')} ${ic('go')}</button><button class="btn block" data-act="quick">${T('Quick session (5)','Sesión rápida de 5')}</button>`;
-  } else if(!testDone){
-    title=T('Vocabulary up to date','Vocabulario al día'); lead=T('One control left: a short test closes today\'s course.','Queda un control: un test corto cierra el recorrido de hoy.');
-    go=`<button class="btn primary big block" ${sug.attr}>${T('Take the test','Hacer el test')} ${ic('go')}</button><button class="btn ghost block" data-act="extra" ${Object.keys(S.srs).length?'':'disabled'}>${T('Extra vocabulary review','Repaso extra de vocabulario')}</button>`;
-  } else {
-    title=T('Course complete','Recorrido completo'); lead=T('Reviews come back when they are due. Anything else today is a bonus.','Los repasos vuelven cuando toca. Lo que hagas hoy ya es extra.');
-    go=`<button class="btn primary big block" data-act="extra" ${Object.keys(S.srs).length?'':'disabled'}>${T('Extra review','Repaso extra')} ${ic('go')}</button><button class="btn block" data-act="mixed">${T('Mixed test','Test mixto')}</button>`;
-  }
-  const run=S.run, wm=S.wmock;
-  return `${header()}
-    <section class="today"><h1>${title}</h1><p class="lead">${lead}</p>${course}${table}<div class="go">${go}</div></section>
-    ${lessonHTML()}
-    ${unread?`<div class="panel note"><h3>${ic('mail')}${T('Note from Claude','Nota de Claude')}</h3><p style="white-space:pre-wrap">${esc(unread.text)}</p><button class="btn ghost" data-act="readmsg">${T('Mark as read','Marcar como leída')}</button></div>`:''}
-    ${run?`<div class="panel note run"><h3>${ic('clock')}${esc(run.title)}: ${T('in progress','a medias')}</h3><button class="btn block" data-go="run">${T('Continue','Continuar')}</button></div>`:''}
-    ${wm?`<div class="panel note run"><h3>${ic('clock')}${T('Writing mock exam in progress','Simulacro de Writing en curso')}</h3><button class="btn block" data-go="wmock">${T('Continue','Continuar')}</button></div>`:''}
-    <h2>${T('This week','Esta semana')}</h2>${weekHTML()}
-    <p class="small muted" style="margin-top:10px">${c.streak?T(`${c.streak}-day streak · ${c.learned} words learnt · ${S.tests.length} tests`,`${c.streak} ${c.streak===1?'día':'días'} seguidos · ${c.learned} palabras aprendidas · ${S.tests.length} tests`):T(`${c.learned} words learnt · ${S.tests.length} tests`,`${c.learned} palabras aprendidas · ${S.tests.length} tests`)}</p>
-    <h2>${T('Challenges','Retos')}</h2>${challengesHTML(['daily','speed','sudden'])}
-    <button class="btn ghost block" data-go="tests" style="margin-top:6px">${T('All challenges and the mixed test','Todos los retos y el test mixto')}</button>
-    <h2>${T('Map legend','Leyenda')}</h2>
-    <ul class="legend">
-      <li><button data-go="study">${ic('book')}<span><b>${T('Study','Estudiar')}</b><span>${T('Grammar, irregular verbs, phrasal verbs and exam guides','Gramática, irregulares, phrasal verbs y guías del examen')}</span></span>${ic('chev','sm')}</button></li>
-      <li><button data-go="tests">${ic('flag')}<span><b>Tests</b><span>${T('By topic, by part and timed mock exams','Por temas, por partes y simulacros cronometrados')}</span></span>${ic('chev','sm')}</button></li>
-      <li><button data-go="writing">${ic('pen')}<span><b>${T('Write','Escribir')}</b><span>${T('Emails, articles and stories for Claude to mark','Emails, artículos e historias para que corrija Claude')}</span></span>${ic('chev','sm')}</button></li>
-      <li><button data-go="progress">${ic('chart')}<span><b>${T('Progress','Progreso')}</b><span>${T('Statistics, mock scores and hardest words','Estadísticas, simulacros y palabras difíciles')}</span></span>${ic('chev','sm')}</button></li>
-    </ul>
-    ${since>=30 && (daysSinceExport===null || daysSinceExport>=7) ? `<div class="panel note" style="margin-top:14px"><h3>${ic('mail')}${T('Time for a review with Claude','Toca revisar con Claude')}</h3><p class="small">${T("You have a lot of activity that hasn't been exported. Copy your updates and paste them in the chat.",'Tienes bastante actividad sin exportar. Copia tus novedades y pégalas en el chat.')}</p><button class="btn block" data-go="data">${T('Go to export','Ir a exportar')}</button></div>`:''}`;
-}
-
 /* ---------- Vocabulary session ---------- */
 let trackPos=0;
 function sentenceHTML(prompt, fill, cls){
@@ -416,91 +302,11 @@ function sentenceHTML(prompt, fill, cls){
   return `<p class="sentence">${parts.map(esc).join(`<span class="slot ${cls||''}">${fill?esc(fill):'&nbsp;'}</span>`)}</p>`;
 }
 // One control per exercise on the purple line; answered ones are punched (filled) or crossed
-function trackHTML(ss, curRes){
-  const n=ss.q.length, to=n>1 ? Math.min(1, ss.i/(n-1)) : 1;
-  const dots=ss.q.map((_,k)=>{ const r=k<ss.i ? ss.results[k]?.r : k===ss.i ? curRes : null;
-    return `<i class="${k===ss.i&&!curRes?'cur':''} ${r||''}"></i>`; }).join('');
-  const html=`<div class="track" aria-hidden="true"><div class="leg" data-to="${to}" style="transform:scaleX(${trackPos})"></div>${dots}</div>`;
-  trackPos=to; return html;
-}
-function renderSession(){
-  const ss=S.session;
-  if(!ss) return renderHome();
-  if(!current && ss.answered===ss.i) ss.i++; // answered but left before pressing "Next": don't count it twice
-  if(ss.i>=ss.q.length){ if(!ss.done) finishQuiz(ss); return renderSummary(); }
-  const base=ITEMS.get(ss.q[ss.i]);
-  if(!base){ ss.q.splice(ss.i,1); save(); return renderSession(); }
-  if(!current || current.idx!==ss.i || current.id!==base.id){
-    const card=presentCard(ss, base);
-    current={ id:base.id, idx:ss.i, start:Date.now(), checked:false, result:null, answer:'', showHint:false, card, opts:card.options ? shuffle([...card.options]) : null };
-  }
-  const item=current.card, done=current.checked, res=current.result, correct=correctText(item);
-  const hint=L(item,'hint'), exp=L(item,'exp');
-  let body='', answer='', foot='';
-  const ch=`<div class="ch"><span class="n">${ss.i+1}</span><span class="t">${esc(lab(CAT_L,item.cat)||T('Exercise','Ejercicio'))}</span><span class="lv">${esc(item.level||'')}</span></div>`;
-  if(item.type==='dictation'){
-    body=`<div class="card sheet">${ch}<div class="cb" style="text-align:center"><button class="play" data-act="say" aria-label="${T('Listen to the sentence','Escuchar la frase')}">${ic('play')}</button>
-      <div style="margin-top:12px"><button class="btn ghost" data-act="sayslow">${T('Listen more slowly','Escuchar más despacio')}</button></div>
-      ${done?`<p class="sentence diff" style="margin-top:14px;font-size:21px">${dictDiff(item.text, current.answer)}</p>`:''}</div></div>`;
-  } else if(item.type==='translate'){
-    body=`<div class="card sheet">${ch}<div class="cb"><div class="small muted" style="margin-bottom:6px">${T('In Spanish:','En español:')}</div><div class="es">${esc(item.es)}</div>${done?`<p class="sentence" style="margin-top:12px"><span class="slot ${res}">${esc(correct)}</span></p>`:''}</div></div>`;
-  } else {
-    const fill = done ? (item.type==='mcq' ? item.answer : (res==='ok' ? current.answer.trim() : correct)) : '';
-    body=`<div class="card sheet">${ch}<div class="cb">${sentenceHTML(item.prompt, fill, done?(res==='bad'?'ok':res):'')}
-      ${item.type==='wordform'?`<div class="base">${esc(item.base)}</div>`:''}
-      ${hint && (done ? !exp : (current.showHint||item.hintAlways))?`<div class="hint">${esc(hint)}</div>`:''}</div></div>`;
-  }
-  if(item.type==='mcq'){
-    answer=`<div class="opts">${current.opts.map((o,i)=>{ let cls=''; if(done){ if(o===item.answer) cls='ok'; else if(o===current.answer) cls='bad'; }
-      return `<button class="opt ${cls}" data-opt="${esc(o)}" ${done?'disabled':''}><span class="ol">${'ABCDEF'[i]}</span><span class="ot">${esc(o)}</span></button>`; }).join('')}</div>`;
-  } else if(!done){
-    foot=`<input id="ans" class="field" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="${item.type==='dictation'?T('Write what you hear','Escribe lo que oyes'):T('Your answer','Tu respuesta')}" aria-label="${T('Your answer','Tu respuesta')}">
-      <div class="actions"><button class="btn primary block" data-act="check">${T('Check','Comprobar')}</button>
-      <div class="row">${hint&&!item.hintAlways?`<button class="btn ghost" data-act="hint">${T('Hint','Pista')}</button>`:''}<button class="btn ghost" data-act="dunno" style="margin-left:auto">${T("I don't know",'No lo sé')}</button></div></div>`;
-  }
-  if(done){
-    const title = res==='ok' ? T('Correct','Correcto') : res==='near' ? T('Almost: check the spelling','Casi: revisa la ortografía') : T('Not quite','No es correcto');
-    const listen = item.type==='dictation' ? item.text : (item.prompt ? item.prompt.replace('___', correct) : correct);
-    const rows=[];
-    if(res!=='ok') rows.push(`<tr><td class="k">${T('Answer','Respuesta')}</td><td class="ans">${esc(correct)}</td></tr>`);
-    if(res==='bad' && item.type!=='dictation' && item.type!=='mcq') rows.push(`<tr><td class="k">${T('Yours','La tuya')}</td><td>${esc(current.answer)||T('(blank)','(en blanco)')}</td></tr>`);
-    if(exp) rows.push(`<tr><td class="k">${T('Why','Por qué')}</td><td class="small">${esc(exp)}</td></tr>`);
-    foot=`<div class="verdict ${res}"><span class="mk">${ic(res==='bad'?'x':'check')}</span><h3>${title}</h3>
-        <button class="icon-btn sm" style="margin-left:auto" data-say="${esc(listen)}" aria-label="${T('Listen to the sentence','Escuchar la frase')}">${ic('speaker','sm')}</button></div>
-      ${rows.length?`<div class="fbt"><table class="cd"><tbody>${rows.join('')}</tbody></table></div>`:''}
-      <button class="btn primary block big" id="next" data-act="next">${T('Next','Siguiente')} ${ic('go')}</button>`;
-  }
-  // Speed round and sudden death have no fixed length: they show the score instead of the course
-  const endless=['speed','sudden'].includes(ss.ch), title=sessionTitle(ss);
-  const score=ss.results.filter(r=>r.r!=='bad').length;
-  return `<div class="sess-top"><button class="icon-btn" data-act="quit" aria-label="${T('Exit','Salir')}">${ic('close')}</button>
-      ${endless?`<b style="flex:1">${esc(title)}</b>`:trackHTML(ss, done?res:null)}
-      ${ss.deadline?`<span class="timer" data-deadline="${ss.deadline}" data-kind="sess">${mmss(ss.deadline-Date.now())}</span>`:''}
-      <span class="count">${endless?T(`${score} right`,`${score} bien`):`${ss.i+1}/${ss.q.length}`}</span></div>
-    ${title&&!endless?`<p class="small muted" style="margin:0 0 8px">${esc(title)}</p>`:''}
-    ${body}${answer}
-    <div class="foot">${foot}</div>`;
-}
 function dictDiff(text, ans){
   const raw=text.split(/\s+/), a=words(text), b=words(ans);
   if(a.length!==raw.length) return esc(text);
   const hit=lcsMatch(a,b); return raw.map((w,i)=>hit.has(i)?esc(w):`<span class="miss">${esc(w)}</span>`).join(' ');
 }
-function renderSummary(){
-  if(['mixed','focused','challenge'].includes(S.session.mode)) return quizSummaryHTML(S.session);
-  const ss=S.session, first={}; for(const r of ss.results) if(!(r.id in first)) first[r.id]=r.r;
-  const ids=Object.keys(first), ok=ids.filter(id=>first[id]!=='bad').length;
-  const failed=ids.filter(id=>first[id]==='bad').map(id=>ITEMS.get(id)).filter(Boolean);
-  const dots=ss.results.map(r=>`<i class="${r.r}"></i>`).join('');
-  trackPos=0;
-  return `<div class="sess-top"><button class="icon-btn" data-act="finish" aria-label="${T('Back to home','Volver al inicio')}">${ic('close')}</button>
-      <div class="track" aria-hidden="true"><div class="leg" data-to="1" style="transform:scaleX(0)"></div>${dots}</div><span class="count">${T('Finish','Meta')}</span></div>
-    <h1>${T('Session complete','Sesión terminada')}</h1>
-    <div class="score"><b>${ok}/${ids.length}</b><span>${T('right first time','a la primera')}</span></div>
-    ${failed.length?`<h2>${T('To review','Para repasar')}</h2><table class="cd"><tbody>${failed.map((i,k)=>`<tr data-item="${esc(i.id)}"><th>${k+1}</th><td><b>${esc(i.word||correctText(i))}</b><div class="small muted">${esc(L(i,'exp')||'')}</div></td></tr>`).join('')}</tbody></table>`:`<p class="muted">${T('A clean run: every control punched first time.','Recorrido limpio: todos los controles a la primera.')}</p>`}
-    <div class="foot"><div class="actions"><button class="btn primary big block" data-act="again">${T('Another session','Otra sesión')} ${ic('go')}</button><button class="btn block" data-act="finish">${T('Back to home','Volver al inicio')}</button></div></div>`;
-}
-
 /* ---------- Study ---------- */
 function bestOf(kind, ref){ const ts=S.tests.filter(t=>t.kind===kind && t.ref===ref); return ts.length ? Math.max(...ts.map(t=>Math.round(t.score/t.max*100))) : null; }
 function badge(p){ return p===null ? '' : `<span class="pct ${p>=80?'hi':p>=60?'mid':'lo'}">${p}%</span>`; }
@@ -511,8 +317,8 @@ function renderStudy(){
   const li=g=>{ const k=skillOfPage(g); return `<li><button class="rowbtn" data-page="guide:${esc(g.id)}">${k?`<i class="sw ${SKILL_SW[k]}"></i>`:'<i class="sw none"></i>'}<span class="rt">${esc(L(g,'title'))}</span>${readMark(g.id)||ic('chev','sm')}</button></li>`; };
   const wp=sec('writing'), groups=[...new Set(wp.map(groupOf))];
   const notes=sec('notes'), raw=S.rawNotes.filter(n=>n.status!=='converted');
-  const learnedPh=[...PHRASAL.values()].filter(p=>{ const s=S.srs[phId(p.v)]; return s && s.i>=3; }).length;
-  return `${header()}<h1>${T('Study','Estudiar')}</h1><p class="muted">${T('Your theory book and your notes.','Tu libro de teoría y tus apuntes.')}</p>
+  return `${header()}<h1>${T('Study','Estudiar')}</h1><p class="muted">${T('Learn new items, browse your libraries, and read the theory and your notes.','Aprende elementos nuevos, consulta tus librerías y lee la teoría y tus apuntes.')}</p>
+    ${librariesHTML()}
     <h2>${T('My notes','Mis apuntes')}</h2>
     ${notes.length?`<ul class="list">${notes.map(li).join('')}</ul>`:`<p class="small muted">${T('Your notes will appear here once Claude sends them back converted.','Aquí aparecerán tus apuntes cuando Claude te los devuelva convertidos.')}</p>`}
     ${raw.length?`<ul class="list">${raw.map(n=>`<li><button class="rowbtn" data-note="${esc(n.id)}"><span>${esc(n.title||T('Untitled note','Apunte sin título'))}<br><span class="small muted">${n.status==='ready'?T('Ready to send to Claude','Listo para enviar a Claude'):T('Draft','Borrador')}</span></span>${ic('chev','sm')}</button></li>`).join('')}</ul>`:''}
@@ -520,9 +326,6 @@ function renderStudy(){
     <h2>${T('The exam','El examen')}</h2><ul class="list">${sec('exam').map(li).join('')}</ul>
     <h2>${T('Grammar','Gramática')}</h2><ul class="list">${[...GRAMMAR.values()].map(g=>`<li><button class="rowbtn" data-page="grammar:${esc(g.id)}"><i class="sw thicket"></i><span class="rt">${esc(L(g,'title'))}</span><span class="row"><span class="chip">${esc(g.level)}</span>${badge(bestOf('topic',g.id))}${readMark(g.id)}</span></button></li>`).join('')}</ul>
     <h2>Writing</h2>${groups.map(g=>`<h3 class="sub">${esc(g)}</h3><ul class="list">${wp.filter(p=>groupOf(p)===g).map(li).join('')}</ul>`).join('')}
-    <h2>${T('Vocabulary','Vocabulario')}</h2><ul class="list">
-      <li><button class="rowbtn" data-page="phrasal:"><i class="sw open"></i><span class="rt">${T('Phrasal verbs in context','Phrasal verbs en contexto')} (${PHRASAL.size})<br><span class="small muted">${T(`${learnedPh} learnt in your sessions`,`${learnedPh} aprendidos en tus sesiones`)}</span></span>${badge(bestOf('phrasal','phrasal'))||ic('chev','sm')}</button></li>
-      <li><button class="rowbtn" data-page="irregular:"><i class="sw open"></i><span class="rt">${T('Irregular verbs','Verbos irregulares')} (${(window.LEXI_IRREGULAR||[]).length})</span>${badge(bestOf('irregular','irregular'))||ic('chev','sm')}</button></li></ul>
     <h2>Speaking</h2><ul class="list">${sec('speaking').map(li).join('')}<li><button class="rowbtn" data-go="speak"><i class="sw rock"></i><span class="rt">${T('Practise speaking with a timer','Practicar speaking con cronómetro')}</span>${ic('chev','sm')}</button></li></ul>
     ${sec('other').length?`<h2>${T('More','Más')}</h2><ul class="list">${sec('other').map(li).join('')}</ul>`:''}`;
 }
@@ -534,36 +337,12 @@ function renderPage(){
     return `${backBar(L(g,'title'),'study')}<article class="page">${L(g,'html')}</article>
       <div class="panel"><div class="row spread"><b>${T('Test on this topic','Test de este tema')}</b>${badge(bestOf('topic',id))}</div><p class="small muted">${pl(g.test.length,'question','questions','pregunta','preguntas').replace(/^/,g.test.length+' ')}.</p>
       <button class="btn primary block" data-topic="${esc(id)}">${T('Take the test','Hacer el test')}</button></div>`; }
-  if(type==='irregular'){ const f=irrFilter.toLowerCase();
-    const rows=(window.LEXI_IRREGULAR||[]).filter(v=>!f || [v.b,v.p,v.pp,v.es].some(x=>x.toLowerCase().includes(f)));
-    return `${backBar(T('Irregular verbs','Verbos irregulares'),'study')}
-      <button class="btn primary block" data-act="irrtest">${T('Practise 10 verbs','Practicar 10 verbos')}</button><div class="gap"></div>
-      <input class="field" id="irrq" placeholder="${T('Search (English or Spanish)','Buscar (inglés o español)')}" value="${esc(irrFilter)}" autocomplete="off" autocapitalize="off">
-      <div class="tablewrap"><table class="irr"><thead><tr><th>${T('Infinitive','Infinitivo')}</th><th>${T('Past simple','Pasado')}</th><th>${T('Past participle','Participio')}</th></tr></thead><tbody id="irrbody">${irrRows(rows)}</tbody></table></div>
-      <p class="small muted">${T("Tap a verb to hear it. The ones you get wrong come up more often in practice.",'Toca un verbo para escucharlo. Los que falles saldrán más en la práctica.')}</p>`; }
-  if(type==='phrasal'){
-    const used=[...new Set([...PHRASAL.values()].map(p=>p.theme))];
-    return `${backBar(T('Phrasal verbs in context','Phrasal verbs en contexto'),'study')}
-      <p class="small muted">${T('Learn each one with its sentences: listen and repeat them out loud. They also appear in your daily vocabulary sessions.','Aprende cada uno con sus frases: escúchalas y repítelas en voz alta. También salen en tus sesiones diarias de vocabulario.')}</p>
-      <button class="btn primary block" data-act="phrtest">${T('Test in context (10)','Test en contexto (10)')}</button><div class="gap"></div>
-      <input class="field" id="phrq" placeholder="${T('Search (English or Spanish)','Buscar (inglés o español)')}" value="${esc(phrFilter)}" autocomplete="off" autocapitalize="off">
-      <div class="chips">${['',...used].map(t=>`<button data-phrtheme="${esc(t)}" aria-pressed="${phrTheme===t}">${esc(t?themeName(t):T('All','Todos'))}</button>`).join('')}</div>
-      <div id="phrlist">${phrCards()}</div>`; }
+  // The v6 pages for irregular and phrasal verbs are now libraries
+  if(type==='irregular' || type==='phrasal'){ libRef=type==='irregular'?'irr':'pv'; libFilter=''; return renderLibrary(); }
   return renderStudy();
 }
 function themeName(t){ return LANG==='en' ? (window.LEXI_EN?.themes?.[t]||t) : ((window.LEXI_PHRASAL_THEMES||{})[t]||t); }
 function hlEx(e){ return esc(e).replace(/\*([^*]+)\*/g,'<b class="hl">$1</b>'); }
-function phrCards(){
-  const f=phrFilter.toLowerCase();
-  const list=[...PHRASAL.values()].filter(p=>(!phrTheme||p.theme===phrTheme) && (!f || [p.v,p.es,p.en,...(p.ex||[])].join(' ').toLowerCase().includes(f)));
-  if(!list.length) return `<p class="muted">${T('Nothing matches that filter.','Nada con ese filtro.')}</p>`;
-  return list.map(p=>{ const s=S.srs[phId(p.v)];
-    return `<div class="pv"><div class="row spread"><b class="pvv">${esc(p.v)}</b><span class="row">${s&&s.i>=3?`<span class="tick" title="${T('Learnt','Aprendido')}">${ic('check','sm')}</span>`:''}${p.sep?`<span class="chip alt">${T('separable','separable')}</span>`:''}<span class="chip">${esc(p.level||'')}</span></span></div>
-      <div class="pves">${esc(meaning(p))}${LANG==='en'&&p.es&&p.en?`<span class="small muted"> · ES: ${esc(p.es)}</span>`:''}</div>
-      <ul class="exs">${(p.ex||[]).map(e=>`<li><button class="icon-btn sm" data-say="${esc(e.replace(/\*/g,''))}" aria-label="${T('Listen','Escuchar')}">${ic('play','sm')}</button><span>${hlEx(e)}</span></li>`).join('')}</ul></div>`; }).join('');
-}
-function irrRows(rows){ return rows.map(v=>`<tr data-say="${esc(v.b+', '+v.p.replace('/',' or ')+', '+v.pp.replace('/',' or '))}"><td><b>${esc(v.b)}</b><div class="small muted">${esc(v.es)}</div></td><td>${esc(v.p)}</td><td>${esc(v.pp)}</td></tr>`).join(''); }
-
 /* ---------- Notes ---------- */
 const NOTE_TEMPLATES = [
 { id:'general', title:['General note (grammar, class, video…)','Apunte general (gramática, clase, vídeo…)'], desc:['For theory: an explanation, examples and questions. Claude turns it into a study page with its own test.','Para teoría: una explicación, ejemplos y dudas. Claude lo convierte en una página de estudio con su test.'],
@@ -738,31 +517,6 @@ function topicTask(g){
   return { id:'topic-'+g.id, section:'grammar', title:L(g,'title'), instructions:T('Choose or write the correct answer.','Elige o escribe la respuesta correcta.'),
     questions:g.test.map((q,i)=>({ n:i+1, stem:L(q,'q'), kind:q.o?'mcq':'text', options:q.o?shuffle([...q.o]):undefined, answer:q.o?q.a:undefined, answers:q.o?undefined:(Array.isArray(q.a)?q.a:[q.a]), exp:L(q,'e') })) };
 }
-function irrTask(){
-  const all=window.LEXI_IRREGULAR||[];
-  const weighted=shuffle([...all]).sort((a,b)=>(S.irr[b.b]||0)-(S.irr[a.b]||0));
-  const pick=shuffle([...weighted.slice(0,4), ...shuffle(weighted.slice(4)).slice(0,6)]);
-  const qs=[]; let n=1;
-  for(const v of pick){
-    qs.push({ n:n++, stem:`${v.b}${LANG==='es'?` (${v.es})`:''} → past simple`, kind:'text', answers:v.p.split('/'), verb:v.b });
-    qs.push({ n:n++, stem:`${v.b} → past participle`, kind:'text', answers:v.pp.split('/'), verb:v.b });
-  }
-  return { id:'irr-'+Date.now(), section:'grammar', title:T('Irregular verbs','Verbos irregulares'), instructions:T('Write the past simple and the past participle.','Escribe el pasado y el participio.'), questions:qs };
-}
-function phrTask(){
-  const all=[...PHRASAL.values()].filter(p=>(p.ex||[]).some(e=>(e.match(/\*/g)||[]).length===2));
-  const weighted=shuffle([...all]).sort((a,b)=>(S.phr[b.v]||0)-(S.phr[a.v]||0));
-  const pick=shuffle([...weighted.slice(0,3), ...shuffle(weighted.slice(3)).slice(0,7)]);
-  return { id:'phr-'+Date.now(), section:'grammar', title:T('Phrasal verbs in context','Phrasal verbs en contexto'),
-    instructions:T('Complete the sentence with the phrasal verb in the correct form, or choose what it means in that sentence.','Completa la frase con el phrasal verb en la forma correcta, o elige qué significa en esa frase.'),
-    questions:pick.map((p,i)=>{
-      const ex=shuffle((p.ex||[]).filter(e=>(e.match(/\*/g)||[]).length===2))[0]; const ans=ex.match(/\*([^*]+)\*/)[1];
-      const other=(p.ex||[]).find(e=>e!==ex); const exp=`${p.v} = ${meaning(p)}${other?T('. Another example: ','. Otro ejemplo: ')+other.replace(/\*/g,''):''}`;
-      if(i%2===0) return { n:i+1, stem:`${ex.replace(/\*([^*]+)\*/,'___')}\n(${p.v}: ${meaning(p)})`, kind:'text', answers:[ans], exp, phr:p.v };
-      const opts=shuffle([meaning(p), ...shuffle(all.filter(x=>x.v!==p.v && meaning(x)!==meaning(p))).slice(0,3).map(meaning)]);
-      return { n:i+1, stem:`${ex.replace(/\*([^*]+)\*/, (m,x)=>x.toUpperCase())}\n${T(`What does "${ans}" mean here?`,`¿Qué significa aquí "${ans}"?`)}`, kind:'mcq', options:opts, answer:meaning(p), exp, phr:p.v };
-    }) };
-}
 function startRun(opts){
   if(S.run && !confirm(T('You have another test in progress. Discard it and start this one?','Tienes otro test a medias. ¿Descartarlo y empezar este?'))) return;
   S.run=Object.assign({ id:'t'+Date.now().toString(36), mode:'practice', ti:0, answers:{}, checked:{}, plays:{}, started:Date.now() }, opts);
@@ -838,6 +592,7 @@ function renderTests(){
   const row=(attr, sw, title, sub, right)=>`<li><button class="rowbtn" ${attr}><i class="sw ${sw}"></i><span class="rt">${title}${sub?`<span class="small muted">${sub}</span>`:''}</span>${right}</button></li>`;
   return `${header()}<h1>Tests</h1>
     ${S.run?`<div class="panel note run"><h3>${ic('clock')}${esc(S.run.title)}: ${T('in progress','a medias')}</h3><button class="btn block" data-go="run">${T('Continue','Continuar')}</button></div>`:''}
+    ${libTestHTML()}
     ${mixedSectionHTML()}
     <h2>${T('Challenges','Retos')}</h2>${challengesHTML()}
     <h2>${T('Mock exams','Simulacros')}</h2><p class="small muted">${T('Timed, with no answers until the end, just like the real exam.','Con cronómetro y sin ver las soluciones hasta el final, como en el examen.')}</p>
@@ -849,8 +604,8 @@ function renderTests(){
     ${Object.keys(SECTION_L).map(sec=>`<h3 class="sub"><i class="sw ${SEC_SW[sec]}"></i>${lab(SECTION_L,sec)}</h3><div class="course parts">${Array.from({length:PARTS[sec]},(_,i)=>partCtrl(sec,i+1)).join('')}</div>`).join('')}
     <h2>${T('Tests by topic','Test por temas')}</h2>
     <ul class="list">${gl.map(g=>row(`data-topic="${esc(g.id)}"`,'thicket',esc(L(g,'title')),'',badge(bestOf('topic',g.id))||ic('chev','sm'))).join('')}
-      ${row('data-act="irrtest"','open',T('Irregular verbs','Verbos irregulares'),'',badge(bestOf('irregular','irregular'))||ic('chev','sm'))}
-      ${row('data-act="phrtest"','open','Phrasal verbs','',badge(bestOf('phrasal','phrasal'))||ic('chev','sm'))}</ul>
+      ${row('data-libtest="irr"','open',T('Irregular verbs','Verbos irregulares'),'',ic('chev','sm'))}
+      ${row('data-libtest="pv"','open','Phrasal verbs','',ic('chev','sm'))}</ul>
     ${hist.length?`<h2>${T('History','Historial')}</h2><table class="cd hist"><tbody>${hist.map(t=>`<tr data-result="${esc(t.id)}"><td><b>${esc(t.title)}</b><div class="small muted">${fmtDate(t.at)}</div></td><td class="v">${t.score}/${t.max}</td></tr>`).join('')}</tbody></table>`:''}`;
 }
 
@@ -905,7 +660,8 @@ function renderRun(){
 function renderResult(){
   const r=S.tests.find(x=>x.id===resultId); if(!r) return renderTests();
   const pct=Math.round(r.score/r.max*100), bad=r.detail.filter(d=>d.r!=='ok');
-  const redo = r.kind==='topic' ? `data-topic="${esc(r.ref)}"` : r.kind==='mock' ? `data-paper="${esc(r.ref)}"` : r.kind==='part' ? `data-part="${esc(r.ref)}"` : r.kind==='irregular' ? 'data-act="irrtest"' : r.kind==='mixed' ? (r.ref&&r.ref!=='mixed'?`data-focus="${esc(r.ref)}"`:'data-act="mixed"') : 'data-act="phrtest"';
+  const redo = r.kind==='topic' ? `data-topic="${esc(r.ref)}"` : r.kind==='mock' ? `data-paper="${esc(r.ref)}"` : r.kind==='part' ? `data-part="${esc(r.ref)}"` : r.kind==='irregular' ? 'data-libtest="irr"' : r.kind==='library' ? `data-libtest="${esc(r.ref)}"` : r.kind==='mixed' ? (r.ref&&r.ref!=='mixed'?`data-focus="${esc(r.ref)}"`:'data-act="mixed"') : 'data-libtest="pv"';
+  const failedUnits=[...new Set(bad.map(d=>d.uid).filter(u=>u && UNITS.has(u)))];
   return `${backBar(T('Result','Resultado'),'tests')}
     <h1>${esc(r.title)}</h1>
     <div class="score"><b>${r.score}/${r.max}</b><span>${pct}%</span></div>
@@ -913,9 +669,9 @@ function renderResult(){
     ${r.scale?`<div class="panel note"><h3>≈ ${r.scale} ${T('on the Cambridge English Scale','en la Cambridge English Scale')}</h3><p class="small" style="margin:0">${scaleLabel(r.scale)}. ${T('Approximate estimate: the official conversion varies slightly between exam sessions.','Estimación aproximada: la conversión oficial varía un poco en cada convocatoria.')}</p></div>`:''}
     ${r.parts.length>1?`<h2>${T('By part','Por partes')}</h2><table class="cd"><tbody>${r.parts.map((p,i)=>`<tr><th>${p.part||i+1}</th><td>${esc(p.title||'Part '+p.part)}<div class="meter"><div style="width:${p.score/p.max*100}%"></div></div></td><td class="v">${p.score}/${p.max}</td></tr>`).join('')}</tbody></table>`:''}
     ${breakdownHTML(r.breakdown)}
-    ${bad.length?`<h2>${T('Your mistakes','Tus fallos')}</h2><table class="cd"><tbody>${bad.map(d=>`<tr ${d.id&&ITEMS.has(d.id)?`data-item="${esc(d.id)}"`:''}><th>${d.n}</th><td>${d.part&&r.parts.length>1?`<div class="small muted">Part ${d.part}</div>`:''}${d.stem?`<div class="small">${esc(d.stem)}</div>`:''}
+    ${bad.length?`<h2>${T('Your mistakes','Tus fallos')}</h2><table class="cd"><tbody>${bad.map(d=>`<tr ${d.uid&&UNITS.has(d.uid)&&!/^(voc|gr):/.test(d.uid)?`data-unit="${esc(d.uid)}"`:d.id&&ITEMS.has(d.id)?`data-item="${esc(d.id)}"`:''}><th>${d.n}</th><td>${d.part&&r.parts.length>1?`<div class="small muted">Part ${d.part}</div>`:''}${d.stem?`<div class="small">${esc(d.stem)}</div>`:''}
       <div class="ans-row bad-t">${ic('x','sm')}<span class="${d.given?'struck':''}">${esc(d.given)||T('(blank)','(en blanco)')}</span></div><div class="ans-row ok-t">${ic('check','sm')}<b>${esc(d.correct)}</b></div></td></tr>`).join('')}</tbody></table>`:`<p class="muted">${T('A clean run: every answer right.','Recorrido limpio: todo correcto.')}</p>`}
-    <div class="actions" style="margin-top:18px"><button class="btn primary block" ${redo}>${T('Try again','Repetir')}</button><button class="btn block" data-go="tests">${T('Back to tests','Volver a tests')}</button></div>`;
+    <div class="actions" style="margin-top:18px">${failedUnits.length?`<button class="btn primary block" data-learnthese="${esc(failedUnits.join('|'))}">${T('Learn these','Aprender estos')}</button>`:''}<button class="btn ${failedUnits.length?'':'primary'} block" ${redo}>${T('Try again','Repetir')}</button><button class="btn block" data-go="tests">${T('Back to tests','Volver a tests')}</button></div>`;
 }
 
 /* ---------- Writing ---------- */
@@ -1002,16 +758,18 @@ function renderProgress(){
   const acc=week.length?Math.round(week.filter(a=>a.r!=='bad').length/week.length*100):null;
   const by=(keyFn,map)=>{ const m={}; for(const a of S.attempts){ const it=ITEMS.get(a.id); if(!it || it.virtual) continue; const k=keyFn(it); (m[k]||(m[k]={n:0,ok:0})); m[k].n++; if(a.r!=='bad') m[k].ok++; }
     return Object.entries(m).sort((x,y)=>(x[1].ok/x[1].n)-(y[1].ok/y[1].n)).map(([k,v])=>`<li><div class="row spread"><span>${esc(lab(map,k))}</span><span class="small muted">${T(`${Math.round(v.ok/v.n*100)}% of ${v.n}`,`${Math.round(v.ok/v.n*100)}% de ${v.n}`)}</span></div><div class="meter"><div style="width:${v.ok/v.n*100}%"></div></div></li>`).join(''); };
-  const hard=Object.entries(S.srs).filter(([,s])=>s.l>0).sort((a,b)=>b[1].l-a[1].l).slice(0,10).map(([id,s])=>({it:ITEMS.get(id),s})).filter(x=>x.it);
+  const hard=Object.entries(S.units).filter(([uid,s])=>s.lapses>0 && UNITS.has(uid)).sort((a,b)=>b[1].lapses-a[1].lapses).slice(0,10).map(([uid,s])=>({ u:UNITS.get(uid), s }));
   const grammar=[...GRAMMAR.values()].map(g=>({ g, p:bestOf('topic',g.id) })).filter(x=>x.p!==null).sort((a,b)=>a.p-b.p);
   const nm=mistakeLog();
   itemBack='progress';
   return `${backBar(T('Progress','Progreso'),'home')}
-    <div class="stats"><div class="stat"><b>${c.learned}</b><span>${T('words learnt','palabras aprendidas')}</span></div><div class="stat"><b>${c.mastered}</b><span>${T('mastered','dominadas')}</span></div><div class="stat"><b>${acc===null?'–':acc+'%'}</b><span>${T('accuracy, 7 days','aciertos, 7 días')}</span></div></div>
+    <div class="stats"><div class="stat"><b>${c.learned}</b><span>${T('known (stage 3+)','conocidas (etapa 3+)')}</span></div><div class="stat"><b>${c.mastered}</b><span>${T('mastered','dominadas')}</span></div><div class="stat"><b>${acc===null?'–':acc+'%'}</b><span>${T('accuracy, 7 days','aciertos, 7 días')}</span></div></div>
     <h2>${T('Last 8 weeks','Últimas 8 semanas')}</h2>${heatmapHTML()}
     ${weakHTML()}
     <h2>${T('Accuracy week by week','Acierto semana a semana')}</h2>${weeklyHTML()}
-    ${formatHTML()}
+    ${libsProgressHTML()}
+    ${skillsHTML()}
+    ${stuckHTML()}
     <h2>${T('Mistake notebook','Cuaderno de errores')}</h2>
     ${nm.length?`<table class="cd hist"><tbody>${mistakeRows(nm.slice(0,3))}</tbody></table><button class="btn block" data-go="mistakes">${T(`See all (${nm.length})`,`Ver todos (${nm.length})`)}</button>`:`<p class="small muted">${T('Nothing yet: your mistakes will be collected here.','Nada todavía: aquí se irán guardando tus fallos.')}</p>`}
     ${bankHTML(c)}
@@ -1019,7 +777,7 @@ function renderProgress(){
     ${mocksHTML()}
     ${grammar.length?`<h2>${T('Grammar (best score)','Gramática (mejor nota)')}</h2><ul class="list">${grammar.map(x=>`<li><div class="row spread"><span>${esc(L(x.g,'title'))}</span>${badge(x.p)}</div><div class="meter"><div style="width:${x.p}%"></div></div></li>`).join('')}</ul>`:''}
     ${S.attempts.length?`<h2>${T('Vocabulary by type','Vocabulario por tipo')}</h2><ul class="list">${by(i=>i.cat, CAT_L)}</ul><h2>${T('Vocabulary by topic','Vocabulario por tema')}</h2><ul class="list">${by(i=>i.topic, TOPIC_L)}</ul>`:''}
-    ${hard.length?`<h2>${T('Words you find hardest','Palabras que más te cuestan')}</h2><table class="cd"><tbody>${hard.map((x,i)=>`<tr data-item="${esc(x.it.id)}"><th>${i+1}</th><td><b>${esc(x.it.word||correctText(x.it))}</b>${x.s.l>=4?`<div class="small bad-t">${T('Hard word','Palabra difícil')}</div>`:''}</td><td class="v">${x.s.l}<span class="small muted"> ${pl(x.s.l,'miss','misses','fallo','fallos')}</span></td></tr>`).join('')}</tbody></table>`:''}`;
+    ${hard.length?`<h2>${T('What you find hardest','Lo que más te cuesta')}</h2><table class="cd"><tbody>${hard.map((x,i)=>`<tr ${x.u.item?`data-item="${esc(x.u.item.id)}"`:`data-unit="${esc(x.u.uid)}"`}><th>${i+1}</th><td><b>${esc(unitName(x.u))}</b><div class="small muted">${esc(libName(x.u.lib))}</div>${x.s.lapses>=4?`<div class="small bad-t">${T('Hard one','Difícil')}</div>`:''}</td><td class="v">${x.s.lapses}<span class="small muted"> ${pl(x.s.lapses,'miss','misses','fallo','fallos')}</span></td></tr>`).join('')}</tbody></table>`:''}`;
 }
 
 /* ---------- Export ---------- */
@@ -1039,35 +797,48 @@ function summaryOf(atts, tests, since=0){
     tests:tests.map(t=>({ title:t.title, kind:t.kind, score:t.score, max:t.max, scale:t.scale||null, at:iso(t.at) })),
     overall:{ itemsSeen:c.total-c.unseen, itemsTotal:c.total, learned:c.learned, mastered:c.mastered, streakDays:c.streak, dueNow:c.due, testsDone:S.tests.length, pagesRead:Object.keys(S.read).length },
     grammarBestPct:grammarBest,
-    phrasalTrouble:Object.entries(S.phr).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,15).map(([v])=>v),
-    irregularTrouble:Object.entries(S.irr).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,15).map(([v])=>v),
+    phrasalTrouble:trouble('pv'),
+    irregularTrouble:trouble('irr'),
     speakingSessions:Object.values(S.speak).reduce((a,b)=>a+b,0),
     minutesPerDay:minutesByDay(atts, tests),
-    accuracyByFormat:accuracyByFormat(atts),
+    accuracyByFormat:accByKey(atts, a=>a.f||inferFormat(a)),
+    accuracyByFormatGroup:accuracyByFormat(atts),
+    accuracyBySkill:accByKey(atts, skillOfAttempt),
+    units:Object.fromEntries(Object.keys(LIB_L).map(l=>{ const c=libStages(l); return [l, { total:BYLIB[l].length, new:c[0], learning:c[1], familiar:c[2], known:c[3], strong:c[4], mastered:c[5] }]; })),
+    stuck:stuckUnits().map(e=>({ uid:e.uid, term:unitName(UNITS.get(e.uid)), fails:e.n, recent:e.last.slice(-3).map(x=>({ at:iso(x.at), answer:x.given, format:x.format })) })),
+    learnList:S.learnList||[],
     challenges:{ best:S.challenges.best, dailyStreak:dailyStreak(), history:S.challenges.hist.filter(h=>h.at>since).map(h=>({ challenge:h.ch, at:iso(h.at), score:h.score, max:h.max, durationSec:h.sec, mistakes:h.mistakes||[] })) },
     leeches:leeches(),
-    topErrorsAllTime:Object.entries(S.srs).filter(([,s])=>s.l>0).sort((a,b)=>b[1].l-a[1].l).slice(0,25).map(([id,s])=>({ id, word:ITEMS.get(id)?.word, lapses:s.l, intervalDays:s.i })) };
+    topErrorsAllTime:Object.entries(S.units).filter(([,s])=>s.lapses>0).sort((a,b)=>b[1].lapses-a[1].lapses).slice(0,25).map(([uid,s])=>({ id:legacyId(uid), uid, word:UNITS.get(uid)?unitName(UNITS.get(uid)):null, lapses:s.lapses, intervalDays:s.interval, stage:s.stage })) };
 }
+const trouble = lib => Object.entries(S.units).filter(([uid,s])=>uid.startsWith(lib+':') && s.lapses>0).sort((a,b)=>b[1].lapses-a[1].lapses).slice(0,15).map(([uid])=>uid.slice(lib.length+1));
+function accByKey(atts, fn){ const m={}; for(const a of atts){ const k=fn(a); if(!k) continue; (m[k]||(m[k]={ n:0, ok:0 })); m[k].n++; if(a.r!=='bad') m[k].ok++; } return m; }
 function buildExport(full){
   const since=full?0:S.lastExportAt, now=Date.now();
   const atts=S.attempts.filter(a=>a.t>since), tests=S.tests.filter(t=>t.at>since);
-  const touched=new Set(atts.map(a=>a.id)); const items={};
+  const touched=new Set(atts.map(a=>a.id)); const items={}, unitInfo={};
   for(const id of touched){ const it=ITEMS.get(id); if(it) items[id]=compactItem(it); }
+  const touchedU=new Set(atts.map(unitOfAttempt).filter(Boolean)), unitState={};
+  for(const uid of (full?Object.keys(S.units):touchedU)){ const s=S.units[uid], u=UNITS.get(uid); if(!s) continue;
+    unitState[uid]={ stage:s.stage, seen:s.seen, correct:s.correct, lapses:s.lapses, intervalDays:s.interval, ease:+(s.ease||2.5).toFixed(2), due:iso(s.due), bySkill:s.bySkill, lastFormats:s.lastFormats };
+    if(u && !u.item) unitInfo[uid]={ lib:u.lib, term:unitName(u), level:u.level, theme:u.theme }; }
   const srs={}; for(const id of (full?Object.keys(S.srs):touched)){ const s=S.srs[id]; if(s) srs[id]={ reps:s.r, lapses:s.l, intervalDays:s.i, ease:+s.e.toFixed(2), due:iso(s.due) }; }
   const writings=S.writings.filter(w=>w.updatedAt>since && w.text.trim()).map(w=>{ const p=ITEMS.get(w.promptId);
     return { id:w.id, promptId:w.promptId, form:p?.form||null, level:p?.level||null, title:p?(p.title_en||p.title):w.title, task:p?p.task:null, targetWords:p?p.words:null, status:w.status, timedMock:!!w.mock, minutes:w.minutes||null, words:wc(w.text), text:w.text, updatedAt:iso(w.updatedAt), alreadyCorrected:!!w.feedback }; });
-  return { format:'lexi-export', version:3, app:APP_VERSION, kind:full?'full':'delta', exportedAt:iso(now), period:{ from:since?iso(since):null, to:iso(now) },
+  return { format:'lexi-export', version:4, app:APP_VERSION, kind:full?'full':'delta', exportedAt:iso(now), period:{ from:since?iso(since):null, to:iso(now) },
     profile:{ currentLevel:'B1', targetExam:'Cambridge B1 Preliminary (PET)', nextGoal:'B2 First', settings:S.settings, appLanguage:LANG },
-    installed:{ packs:S.packs.map(p=>({ id:p.id, name:p.name, active:!p.off })), tasks:[...TASKS.keys()], grammar:[...GRAMMAR.keys()], papers:[...PAPERS.keys()], pages:[...PAGES.keys()], phrasal:[...PHRASAL.keys()] },
+    installed:{ packs:S.packs.map(p=>({ id:p.id, name:p.name, active:!p.off })), tasks:[...TASKS.keys()], grammar:[...GRAMMAR.keys()], papers:[...PAPERS.keys()], pages:[...PAGES.keys()], phrasal:[...PHRASAL.keys()],
+      connectors:BYLIB.cn.map(u=>u.term), collocations:BYLIB.col.map(u=>u.term), families:BYLIB.wf.map(u=>u.term), transformations:BYLIB.tr.map(u=>u.uid.slice(3)) },
     summary:summaryOf(atts, tests, since),
-    attempts:atts.map(a=>({ id:a.id, at:iso(a.t), result:a.r, ms:a.ms, answer:a.a, format:inferFormat(a), mode:a.m||'daily', hintShown:!!a.h })), items, srs,
+    attempts:atts.map(a=>Object.assign({ id:a.id, uid:unitOfAttempt(a), at:iso(a.t), result:a.r, ms:a.ms, answer:a.a, format:inferFormat(a), skill:skillOfAttempt(a), mode:a.m||'daily', hintShown:!!a.h }, a.q?{ question:a.q, correct:a.c }:{})), items, srs, units:unitInfo, unitState,
+    productions:(S.prod||[]).filter(p=>p.at>since).map(p=>({ uid:p.uid, term:UNITS.get(p.uid)?unitName(UNITS.get(p.uid)):p.uid, at:iso(p.at), prompt:p.prompt, text:p.text, selfAssessed:p.self })),
     tests:tests.map(t=>Object.assign({ id:t.id, kind:t.kind, ref:t.ref, title:t.title, mode:t.mode, at:iso(t.at), durationSec:t.durationSec, score:t.score, max:t.max, scale:t.scale||null, parts:t.parts, mistakes:t.detail.filter(d=>d.r!=='ok') }, t.breakdown?{ breakdown:t.breakdown, options:t.opts||null }:{})),
     writings,
     notes:S.rawNotes.filter(n=>n.status==='ready' && (full || n.updatedAt>since)).map(n=>({ id:n.id, title:n.title, template:n.template, text:n.text, updatedAt:iso(n.updatedAt) })),
     _ts:now };
 }
 function getExport(full){ if(!exportCache || exportCache.full!==full) exportCache={ full, data:buildExport(full) }; return exportCache.data; }
-function markExported(data){ if(data.kind!=='delta') return; S.lastExportAt=data._ts; S.exports.push({ at:data._ts, attempts:data.attempts.length, tests:data.tests.length, writings:data.writings.length }); exportCache=null; save(); }
+function markExported(data){ if(data.kind!=='delta') return; S.lastExportAt=data._ts; S.exports.push({ at:data._ts, attempts:data.attempts.length, tests:data.tests.length, writings:data.writings.length, productions:data.productions.length }); exportCache=null; save(); }
 function exportJSON(data){ const d=Object.assign({},data); delete d._ts; return JSON.stringify(d); }
 async function copyText(text){
   try{ await navigator.clipboard.writeText(text); return true; }
@@ -1124,8 +895,38 @@ function whyPhrasal(p){
   if(!p.ex.some(e=>(String(e).match(/\*/g)||[]).length>=2)) return T('no example marks the verb with *asterisks*','ningún ejemplo marca el verbo con *asteriscos*');
   return null;
 }
-const WHY={ items:whyItem, tasks:whyTask, grammar:whyTopic, pages:whyPage, papers:whyPaper, phrasal:whyPhrasal };
-function existsIn(k,key){ return ({ items:ITEMS, tasks:TASKS, papers:PAPERS, pages:PAGES, grammar:GRAMMAR, phrasal:PHRASAL })[k].has(key); }
+const starred = arr => Array.isArray(arr) && arr.some(e=>(String(e).match(/\*/g)||[]).length>=2);
+const CN_FN=['add','contrast','reason','result','purpose','example','sequence','opinion','conclusion','condition','time'];
+function whyConnector(x){
+  if(!x || typeof x.w!=='string' || !x.w) return T('missing "w" (the connector)','falta "w" (el conector)');
+  if(!CN_FN.includes(x.fn)) return T(`"fn" must be one of: ${CN_FN.join(', ')}`,`"fn" debe ser uno de: ${CN_FN.join(', ')}`);
+  if(typeof x.es!=='string' && typeof x.en!=='string') return T('missing "es" or "en" (meaning)','falta "es" o "en" (significado)');
+  if(!starred(x.ex)) return T('"ex" needs an example with the connector between *asterisks*','"ex" necesita un ejemplo con el conector entre *asteriscos*');
+  return null;
+}
+function whyCollocation(x){
+  if(!x || typeof x.c!=='string' || !x.c) return T('missing "c" (the collocation)','falta "c" (la collocation)');
+  if(typeof x.verb!=='string' || !x.verb) return T('missing "verb"','falta "verb"');
+  if(typeof x.es!=='string' && typeof x.en!=='string') return T('missing "es" or "en" (meaning)','falta "es" o "en" (significado)');
+  if(!starred(x.ex)) return T('"ex" needs an example with the collocation between *asterisks*','"ex" necesita un ejemplo con la collocation entre *asteriscos*');
+  return null;
+}
+function whyFamily(x){
+  if(!x || typeof x.base!=='string' || !x.base) return T('missing "base"','falta "base"');
+  if(!x.forms || typeof x.forms!=='object' || Object.keys(x.forms).length<2) return T('"forms" needs at least two forms','"forms" necesita al menos dos formas');
+  if(x.ex && !starred(Object.values(x.ex))) return T('the examples in "ex" must mark the word with *asterisks*','los ejemplos de "ex" deben marcar la palabra con *asteriscos*');
+  return null;
+}
+function whyTransformation(x){
+  if(!x || typeof x.id!=='string' || !x.id) return T('missing "id"','falta "id"');
+  if(typeof x.from!=='string' || typeof x.key!=='string') return T('missing "from" or "key"','faltan "from" o "key"');
+  if(typeof x.to!=='string' || !x.to.includes('___')) return T('"to" must have a ___ gap','"to" debe tener un hueco ___');
+  const a=Array.isArray(x.answers)?x.answers:String(x.answers||'').split('/').filter(Boolean); if(!a.length) return T('missing "answers"','falta "answers"');
+  return null;
+}
+const WHY={ items:whyItem, tasks:whyTask, grammar:whyTopic, pages:whyPage, papers:whyPaper, phrasal:whyPhrasal, connectors:whyConnector, collocations:whyCollocation, families:whyFamily, transformations:whyTransformation };
+const UNIT_PREFIX={ connectors:'cn:', collocations:'col:', families:'wf:', transformations:'tr:' };
+function existsIn(k,key){ if(UNIT_PREFIX[k]) return UNITS.has(UNIT_PREFIX[k]+key); return ({ items:ITEMS, tasks:TASKS, papers:PAPERS, pages:PAGES, grammar:GRAMMAR, phrasal:PHRASAL })[k].has(key); }
 function parseImport(text){
   let t=String(text||'').trim().replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'').trim();
   const i=t.search(/[\[{]/); if(i<0) throw new Error(T("I can't find any JSON in the text.",'No encuentro ningún JSON en el texto.'));
@@ -1159,6 +960,8 @@ function analyzeImport(list){
     if(Array.isArray(d.review)) e.review=d.review.filter(id=>S.srs[id]).length;
     if(Array.isArray(d.retire)) e.retire=d.retire.length;
     if(Array.isArray(d.convertedNotes)) e.converted=d.convertedNotes.length;
+    const ll=[...(Array.isArray(P.learnList)?P.learnList:[]), ...(Array.isArray(d.learnList)?d.learnList:[])].filter(x=>typeof x==='string');
+    if(ll.length) e.learnList=ll;
     if(d.message) e.message=String(d.message);
     rep.entries.push(e);
   }
@@ -1188,6 +991,7 @@ function applyImport(rep){
     if(Array.isArray(d.retire)) for(const p of S.packs) for(const k of PACK_KEYS) if(p[k]) p[k]=p[k].filter(x=>!d.retire.includes(keyOf(k,x)));
     if(Array.isArray(d.convertedNotes)) for(const c of d.convertedNotes){ const nid=typeof c==='string'?c:c.noteId; const n=S.rawNotes.find(x=>x.id===nid); if(n){ n.status='converted'; n.pageIds=c.pageIds||[]; } }
     if(d.message) S.messages.push({ at:Date.now(), text:String(d.message), read:false });
+    if(e.learnList){ S.learnList=[...new Set([...(S.learnList||[]), ...e.learnList])]; out.push(T(`${e.learnList.length} in your learning list`,`${e.learnList.length} en tu lista de aprendizaje`)); }
   }
   rebuild(); exportCache=null; pendingImport=null; save();
   return out.length ? T('Done: ','Hecho: ')+out.join('; ')+'.' : T('Applied.','Aplicado.');
@@ -1202,7 +1006,7 @@ function importPreviewHTML(rep){
         <ul class="small">${Object.entries(e.counts).map(([k,c])=>`<li>${label(k,c)}</li>`).join('')}
         ${e.feedback?`<li>${T('Writing corrections:','Correcciones de writing:')} ${e.feedback.ok}${e.feedback.missing?T(` (${e.feedback.missing} for texts not on this phone)`,` (${e.feedback.missing} de textos que no están en este móvil)`):''}</li>`:''}
         ${e.review!=null?`<li>${T('Words to review now:','Palabras para repasar ya:')} ${e.review}</li>`:''}${e.retire?`<li>${T('Items to remove:','Elementos a retirar:')} ${e.retire}</li>`:''}
-        ${e.converted?`<li>${T('Notes marked as converted:','Apuntes marcados como convertidos:')} ${e.converted}</li>`:''}${e.message?`<li>${T('Includes a note for you','Incluye una nota para ti')}</li>`:''}</ul>
+        ${e.converted?`<li>${T('Notes marked as converted:','Apuntes marcados como convertidos:')} ${e.converted}</li>`:''}${e.learnList?`<li>${T('Added to your learning list:','Se añaden a tu lista de aprendizaje:')} ${e.learnList.length}</li>`:''}${e.message?`<li>${T('Includes a note for you','Incluye una nota para ti')}</li>`:''}</ul>
         ${e.errors.length?`<details><summary class="small bad-t">${T(`${e.errors.length} ${e.errors.length===1?"item won't":"items won't"} be loaded: see why`,`${e.errors.length} ${e.errors.length===1?'elemento no se cargará':'elementos no se cargarán'}: ver por qué`)}</summary><ul class="small">${e.errors.slice(0,30).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><p class="small muted">${T('Give this list to Claude so it can fix it.','Pásale esta lista a Claude para que lo corrija.')}</p></details>`:''}</div>`;
     }).join('')}
     <div class="row" style="margin-top:12px">${rep.ok?`<button class="btn primary" data-act="applyimport">${T('Apply','Aplicar')}</button>`:''}<button class="btn" data-act="cancelimport">${T('Cancel','Cancelar')}</button></div></div>`;
@@ -1214,7 +1018,7 @@ function reviewImport(text){
 }
 function packCounts(p){ return PACK_KEYS.filter(k=>(p[k]||[]).length).map(k=>`${p[k].length} ${lab(PACK_L,k)}`).join(', ') || T('empty','vacío'); }
 function packContents(p){
-  const name=(k,x)=>k==='phrasal'?x.v:(L(x,'title')||x.word||x.prompt||x.es||x.id);
+  const name=(k,x)=>k==='phrasal'||k==='connectors'||k==='collocations'||k==='families'?keyOf(k,x):k==='transformations'?x.from:(L(x,'title')||x.word||x.prompt||x.es||x.id);
   return PACK_KEYS.filter(k=>(p[k]||[]).length).map(k=>`<p class="small"><b>${lab(PACK_L,k)}</b></p><ul class="small">${p[k].slice(0,40).map(x=>`<li>${esc(String(name(k,x)).slice(0,90))}</li>`).join('')}${p[k].length>40?`<li>${T(`…and ${p[k].length-40} more`,`…y ${p[k].length-40} más`)}</li>`:''}</ul>`).join('');
 }
 
@@ -1244,9 +1048,8 @@ function renderData(){
     <div class="panel stack"><div><b>${T('Language','Idioma')}</b></div><div class="seg" role="group"><button data-lang="en" aria-pressed="${LANG==='en'}">English</button><button data-lang="es" aria-pressed="${LANG==='es'}">Español</button></div>
       <p class="small muted" style="margin:0">${T('Changes the interface, theory and explanations. Exercises are always in English.','Cambia la interfaz, la teoría y las explicaciones. Los ejercicios siempre están en inglés.')}</p>
       <div style="margin-top:14px"><b>${T('Appearance','Apariencia')}</b></div><div class="seg" role="group">${[['auto',T('Automatic','Automático')],['light',T('Light','Claro')],['dark',T('Dark','Oscuro')]].map(([v,l])=>`<button data-theme-set="${v}" aria-pressed="${(S.settings.theme||'auto')===v}">${l}</button>`).join('')}</div>
-      <div style="margin-top:14px"><b>${T('Exercises per vocabulary session','Ejercicios por sesión de vocabulario')}</b></div>${seg('sessionSize',[5,10,15,20])}
-      <div style="margin-top:14px"><b>${T('New words per day','Palabras nuevas al día')}</b></div>${seg('newPerDay',[5,8,12,20])}
-      ${toggleRow('grammarDaily', T('Include grammar in daily sessions','Incluir gramática en las sesiones diarias'), T('Questions from the grammar tests come back with spaced repetition: about a quarter of the new ones each day.','Las preguntas de los tests de gramática vuelven con repetición espaciada: más o menos una de cada cuatro nuevas.'))}
+      ${mixSettingsHTML()}
+      ${toggleRow('grammarDaily', T('Include grammar in daily practice','Incluir gramática en la práctica diaria'), T('Questions from the grammar tests come back with spaced repetition, in the share the mix gives them.','Las preguntas de los tests de gramática vuelven con repetición espaciada, en la proporción que marque la mezcla.'))}
       ${S.settings.grammarDaily?toggleRow('grammarAll', T("Also from topics I haven't read",'También de temas que no he leído'), T('Off: only topics whose theory you have opened.','Desactivado: solo de los temas cuya teoría has abierto.')):''}</div>
     <h2>${T('Backup','Copia de seguridad')}</h2>
     <div class="panel stack"><p class="small muted" style="margin:0">${T('Your data only exists on this phone. Save a copy from time to time.','Tus datos solo están en este móvil. Guarda una copia de vez en cuando.')}</p>
@@ -1271,8 +1074,6 @@ function afterRender(){
   }));
   const tt=$('#wtitle'); if(tt) tt.addEventListener('input',()=>{ const w=S.writings.find(x=>x.id===editing); w.title=tt.value; w.updatedAt=Date.now(); clearTimeout(saveTimer); saveTimer=setTimeout(save,700); });
   document.querySelectorAll('input.qin').forEach(el=>el.addEventListener('input',()=>{ if(!S.run) return; S.run.answers[el.dataset.q]=el.value; clearTimeout(saveTimer); saveTimer=setTimeout(save,500); }));
-  const iq=$('#irrq'); if(iq) iq.addEventListener('input',()=>{ irrFilter=iq.value; const f=irrFilter.toLowerCase();
-    $('#irrbody').innerHTML=irrRows((window.LEXI_IRREGULAR||[]).filter(v=>!f||[v.b,v.p,v.pp,v.es].some(x=>x.toLowerCase().includes(f)))); });
   const f=$('#impfile'); if(f) f.addEventListener('change', async ()=>{ if(!f.files.length) return;
     const texts=await Promise.all([...f.files].map(x=>x.text())); let all=[];
     try{ for(const t of texts) all=all.concat(parseImport(t)); }catch(e){ toast(e.message); return; }
@@ -1281,8 +1082,9 @@ function afterRender(){
   document.querySelectorAll('textarea[data-note]').forEach(ta=>ta.addEventListener('input',()=>{ const n=S.rawNotes.find(x=>x.id===ta.dataset.note); if(!n) return; n.text=ta.value; n.updatedAt=Date.now();
     savingLabel(false); clearTimeout(saveTimer); saveTimer=setTimeout(()=>{ exportCache=null; save(); savingLabel(true); },700); }));
   const nt=$('#ntitle'); if(nt) nt.addEventListener('input',()=>{ const n=S.rawNotes.find(x=>x.id===noteId); n.title=nt.value; n.updatedAt=Date.now(); clearTimeout(saveTimer); saveTimer=setTimeout(save,700); });
-  const pq=$('#phrq'); if(pq) pq.addEventListener('input',()=>{ phrFilter=pq.value; $('#phrlist').innerHTML=phrCards(); });
-  if(view==='session' && current && !current.checked){ const it=current.card; if(it?.type==='dictation') setTimeout(()=>speak(it.text), 350); }
+  if(view==='session' && current && !current.checked && !current.spoken){ const ex=current.ex; if(ex?.auto && ex.say){ current.spoken=true; setTimeout(()=>speak(ex.say), 350); } }
+  const lq=$('#libq'); if(lq) lq.addEventListener('input',()=>{ libQuery=lq.value; $('#liblist').innerHTML=libListHTML(); });
+  const sa=$('#ans'); if(sa && current?.ex?.kind==='self') sa.addEventListener('input',()=>{ current.ui.text=sa.value; });
 }
 function playKey(key){
   const run=S.run; if(!run) return;
@@ -1294,7 +1096,7 @@ function playKey(key){
   speakScript(lines);
 }
 document.addEventListener('click', async e=>{
-  const t=e.target.closest('button, [data-go], tr[data-say], tr[data-result], tr[data-item]'); if(!t || t.disabled) return;
+  const t=e.target.closest('button, [data-go], tr[data-say], tr[data-result], tr[data-item], tr[data-unit], tr[data-lib]'); if(!t || t.disabled) return;
   const ds=t.dataset;
   if(ds.go){ go(ds.go); return; }
   if(ds.opt!==undefined){ check(ds.opt); return; }
@@ -1316,9 +1118,33 @@ document.addEventListener('click', async e=>{
   if(ds.ch){ startChallenge(ds.ch); return; }
   if(ds.focus){ startMixed({ n:10, focus:'weak', level:'all', timer:false, only:ds.focus }); return; }
   if(ds.item){ if(view!=='item') itemBack=view; itemId=ds.item; go('item'); return; }
+  if(ds.unit){ if(!UNITS.has(ds.unit)) return; if(view!=='unit') unitBack=['library','progress','result'].includes(view)?view:view==='session'?'home':'library'; if(view==='session') current=null; unitRef=ds.unit; libRef=ds.unit.split(':')[0]; go('unit'); return; }
+  if(ds.lib){ libRef=ds.lib; libFilter=''; libQuery=''; go('library'); return; }
+  if(ds.lfilter!==undefined){ libFilter=libFilter===ds.lfilter?'':ds.lfilter; render(); return; }
+  if(ds.lsort){ libSort=ds.lsort; render(); return; }
+  if(ds.learnlib!==undefined){ learnCfg.lib=ds.learnlib; learnCfg.theme=''; go('learn'); return; }
+  if(ds.lrnlib!==undefined){ learnCfg.lib=ds.lrnlib; learnCfg.theme=''; render(); return; }
+  if(ds.lrntheme!==undefined){ learnCfg.theme=ds.lrntheme; render(); return; }
+  if(ds.lrnn){ learnCfg.n=+ds.lrnn; render(); return; }
+  if(ds.flashlib){ startFlash(ds.flashlib); return; }
+  if(ds.libtest){ S.settings.libtest.lib=ds.libtest; S.settings.libtest.theme=''; if(S.settings.libtest.scope==='theme') S.settings.libtest.scope='all'; startLibTest({ lib:ds.libtest }); return; }
+  if(ds.lt){ const c=S.settings.libtest; c[ds.lt]= ds.lt==='n' ? +ds.val : ds.val; if(ds.lt==='lib'){ c.theme=''; if(c.scope==='theme') c.scope='all'; } save(); const y=window.scrollY; render(); window.scrollTo(0,y); return; }
+  if(ds.practise){ startPractiseOne(ds.practise); return; }
+  if(ds.learnlist){ const l=S.learnList||(S.learnList=[]), i=l.indexOf(ds.learnlist); if(i<0) l.push(ds.learnlist); else l.splice(i,1); save(); render(); toast(i<0?T('Added to your learning list.','Añadido a tu lista de aprendizaje.'):T('Removed from your learning list.','Quitado de tu lista de aprendizaje.')); return; }
+  if(ds.learnthese){ startLearn(ds.learnthese.split('|').map(id=>UNITS.get(id)).filter(Boolean).slice(0,8)); return; }
+  if(ds.preset){ S.settings.mixPreset=ds.preset; save(); render(); return; }
+  if(ds.share){ const sh=Object.assign({}, currentShares()); sh[ds.share]=Math.max(0, Math.min(60, (sh[ds.share]||0)+(+ds.d))); S.settings.mixShares=sh; S.settings.mixPreset='custom'; save(); const y=window.scrollY; render(); window.scrollTo(0,y); return; }
+  if(ds.ml && current && !current.checked){ const ui=current.ui; if(ui.pairs[ds.ml]){ delete ui.pairs[ds.ml]; ui.sel=null; } else ui.sel=ds.ml; render(); return; }
+  if(ds.mr && current && !current.checked){ const ui=current.ui; if(!ui.sel){ toast(T('Tap a word on the left first.','Toca primero una palabra de la izquierda.')); return; }
+    for(const k of Object.keys(ui.pairs)) if(ui.pairs[k]===ds.mr) delete ui.pairs[k];
+    ui.pairs[ui.sel]=ds.mr; ui.sel=null; if(Object.keys(ui.pairs).length===current.ex.pairs.length) check(Object.assign({}, ui.pairs)); else render(); return; }
+  if(ds.tile!==undefined && current && !current.checked){ current.ui.order.push(+ds.tile); render(); return; }
+  if(ds.untile!==undefined && current && !current.checked){ current.ui.order.splice(+ds.untile,1); render(); return; }
+  if(ds.tok!==undefined && current && !current.checked){ const ex=current.ex, i=+ds.tok; current.ui.tok=i; if(!ex.bad.includes(i) || !ex.fix) check({ tok:i }); else render(); return; }
+  if(ds.self && current && !current.checked){ check(ds.self); return; }
+  if(ds.flash && current && !current.checked){ check(ds.flash); return; }
   if(ds.mfilter!==undefined){ mistakeCat=ds.mfilter; render(); return; }
   if(ds.sp){ sp={ part:+ds.sp, idx:Math.floor(Math.random()*20), end:0 }; render(); return; }
-  if(ds.phrtheme!==undefined){ phrTheme=ds.phrtheme; render(); return; }
   if(ds.newnote!==undefined){ newNote(ds.newnote); return; }
   if(ds.note){ noteId=ds.note; go('note'); return; }
   if(ds.copytpl){ const tp=NOTE_TEMPLATES.find(x=>x.id===ds.copytpl); toast(await copyText(tpl(tp,'text'))?T('Template copied.','Plantilla copiada.'):T("Couldn't copy.",'No se pudo copiar.')); return; }
@@ -1329,29 +1155,37 @@ document.addEventListener('click', async e=>{
   if(ds.packdel){ const p=S.packs.find(x=>x.id===ds.packdel); if(confirm(T(`Delete "${p.name}"? Your progress on its exercises is kept in case you load it again.`,`¿Borrar "${p.name}"? Tu progreso en sus ejercicios se conserva por si lo vuelves a cargar.`))){ S.packs=S.packs.filter(x=>x!==p); rebuild(); exportCache=null; save(); render(); } return; }
   if(ds.wchoose){ const m=S.wmock; const w=createWriting(ds.wchoose,{ mock:m.id, part:2 }); m.w2=w.id; save(); render(); return; }
   const act=ds.act; if(!act) return;
-  const item=current && current.card;
   switch(act){
     case 'togglelang': setLang(LANG==='en'?'es':'en'); exportCache=null; save(); render(); break;
-    case 'start': startSession(S.settings.sessionSize); break;
-    case 'quick': startSession(5); break;
+    case 'start': startSession(S.settings.dailySize||25); break;
+    case 'quick': startSession(10); break;
+    case 'learnauto': startLearn(chooseNewUnits('', '', 5)); break;
+    case 'learnstart': case 'learnmore': startLearn(chooseNewUnits(learnCfg.lib, learnCfg.theme, learnCfg.n)); break;
+    case 'learnfailed': { const ss=S.session; const ids=[...new Set(ss.results.filter(r=>r.r==='bad').map(r=>r.uid))].map(id=>UNITS.get(id)).filter(Boolean).slice(0,8); startLearn(ids); break; }
+    case 'learnlist': libRef=(S.learnList||[])[0]?.split(':')[0]||'pv'; libFilter='state:list'; go('library'); break;
+    case 'libtest': startLibTest(); break;
+    case 'keepgoing': keepGoing(); break;
+    case 'gotit': gotIt(); break;
+    case 'flip': current.ui.flip=true; render(); break;
+    case 'showmodel': current.ui.text=$('#ans')?.value||''; current.ui.model=true; render(); break;
     case 'mixed': startMixed(); break;
-    case 'mixmistakes': { const ss=S.session, ids=[...new Set(ss.results.filter(r=>r.r==='bad').map(r=>r.id))]; startQuiz(spreadCats(ids), { mode:'mixed', opts:{ n:ids.length, mistakes:true } }); break; }
+    case 'mixmistakes': startMyMistakes(S.session); break;
     case 'copymistakes': toast(await copyText(mistakesExport())?T('Mistake list copied.','Lista de errores copiada.'):T("Couldn't copy.",'No se pudo copiar.')); break;
-    case 'extra': startSession(S.settings.sessionSize, 'extra'); break;
+    case 'extra': startSession(S.settings.dailySize||25, 'extra'); break;
     case 'resume': go('session'); break;
-    case 'discard': S.session=null; current=null; save(); startSession(S.settings.sessionSize); break;
-    case 'again': S.session=null; current=null; startSession(S.settings.sessionSize); break;
+    case 'discard': S.session=null; current=null; save(); startSession(S.settings.dailySize||25); break;
+    case 'again': S.session=null; current=null; startSession(S.settings.dailySize||25); break;
     case 'finish': S.session=null; current=null; save(); go('home'); break;
     case 'quit': current=null; go('home'); break;
-    case 'check': check($('#ans')?.value||''); break;
-    case 'dunno': check(''); break;
+    case 'check': submitCurrent(); break;
+    case 'dunno': { const ex=current?.ex; if(!ex) break; check(ex.kind==='multi' ? ex.fields.map(()=>'') : ex.kind==='order' ? [] : ex.kind==='tap' ? { tok:current.ui.tok, fix:'' } : ''); break; }
     case 'hint': current.showHint=true; render(); break;
     case 'next': next(); break;
-    case 'say': speak(item.text); break;
-    case 'sayslow': speak(item.text, 0.65); break;
+    case 'say': if(current?.ex?.say) speak(current.ex.say); break;
+    case 'sayslow': if(current?.ex?.say) speak(current.ex.say, 0.65); break;
     case 'readmsg': S.messages.forEach(m=>m.read=true); save(); render(); break;
-    case 'irrtest': startRun({ kind:'irregular', ref:'irregular', title:T('Irregular verbs','Verbos irregulares'), tasks:[irrTask()] }); break;
-    case 'phrtest': startRun({ kind:'phrasal', ref:'phrasal', title:'Phrasal verbs', tasks:[phrTask()] }); break;
+    case 'irrtest': startLibTest({ lib:'irr' }); break;
+    case 'phrtest': startLibTest({ lib:'pv' }); break;
     case 'checktask': { const run=S.run; const tk=TT(run.tasks[run.ti]); const empty=tk.questions.filter(q=>!run.answers[tk.id+':'+q.n]).length;
       if(empty && !confirm(T(`You have ${empty} unanswered. Check anyway?`,`Te faltan ${empty} por contestar. ¿Corregir igualmente?`))) break; run.checked[run.ti]=true; save(); render(); break; }
     case 'nexttask': S.run.ti++; save(); stopSpeech(); window.scrollTo(0,0); render(); break;
@@ -1383,7 +1217,7 @@ document.addEventListener('click', async e=>{
 });
 document.addEventListener('keydown', e=>{
   if(e.key!=='Enter' || view!=='session' || !current) return;
-  if(e.target.id==='ans' && !current.checked){ e.preventDefault(); check(e.target.value); }
+  if(!current.checked && ((e.target.id==='ans' && current.ex?.kind!=='self') || e.target.classList?.contains('mf'))){ e.preventDefault(); submitCurrent(); }
   else if(current.checked && e.target.tagName!=='BUTTON'){ e.preventDefault(); next(); }
 });
 // Timers

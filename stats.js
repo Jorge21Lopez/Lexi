@@ -15,8 +15,8 @@ function accuracyByFormat(atts=S.attempts){
   for(const a of atts){ const f=inferFormat(a), g=FMT_GROUP[f]; if(!g) continue; (m[g]||(m[g]={ n:0, ok:0 })); m[g].n++; if(a.r!=='bad') m[g].ok++; }
   return m;
 }
-function leeches(){ return Object.entries(S.srs).filter(([,s])=>s.l>=4).sort((a,b)=>b[1].l-a[1].l).map(([id,s])=>{ const it=ITEMS.get(id); return { id, word:it?.word||null, cat:it?.cat||null, lapses:s.l }; }); }
-const catName = c => CAT_L[c] ? lab(CAT_L, c) : SECTION_L[c] ? lab(SECTION_L, c) : c==='mock' ? T('Mock exams','Simulacros') : (c||'?');
+function leeches(){ return Object.entries(S.units).filter(([,s])=>s.lapses>=4).sort((a,b)=>b[1].lapses-a[1].lapses).map(([uid,s])=>{ const u=UNITS.get(uid); return { id:legacyId(uid), uid, word:u?unitName(u):null, cat:u?(u.item?.cat||u.lib):null, lapses:s.lapses }; }); }
+const catName = c => CAT_L[c] ? lab(CAT_L, c) : LIB_L[c] ? lab(LIB_L, c) : SECTION_L[c] ? lab(SECTION_L, c) : c==='mock' ? T('Mock exams','Simulacros') : (c||'?');
 
 /* ---------- Activity calendar ---------- */
 function heatmapHTML(){
@@ -94,8 +94,9 @@ function weakHTML(){
 function mistakeLog(){
   const m=new Map();
   const put=(key, base, t, given)=>{ const e=m.get(key) || Object.assign({ key, n:0, last:0 }, base); e.n++; if(t>=e.last){ e.last=t; e.given=given; } m.set(key, e); };
-  for(const a of S.attempts) if(a.r==='bad'){ const it=ITEMS.get(a.id); if(!it) continue;
-    put(a.id, { id:a.id, cat:it.cat, tags:it.tags||[], q:questionText(it), es:it.type==='translate', correct:correctText(it) }, a.t, a.a||''); }
+  for(const a of S.attempts) if(a.r==='bad'){ const it=ITEMS.get(a.id);
+    if(!it || it.virtual==='ph'){ const u=UNITS.get(unitOfAttempt(a)); if(u) put(u.uid, { id:null, uid:u.uid, cat:u.lib, tags:[], q:a.q||unitName(u), es:a.f==='translate', correct:a.c||unitName(u) }, a.t, a.a||''); continue; }
+    put(a.id, { id:a.id, cat:it.cat, tags:it.tags||[], q:a.q||questionText(it), es:it.type==='translate' || a.f==='translate', correct:a.c||correctText(it) }, a.t, a.a||''); }
   for(const t of S.tests){ if(t.kind==='mixed') continue;
     for(const d of t.detail||[]) if(d.r!=='ok'){ const id=detailRef(t,d), it=id && ITEMS.get(id);
       if(it) put(id, { id, cat:it.cat, tags:it.tags||[], q:questionText(it), correct:correctText(it) }, t.at, d.given);
@@ -106,8 +107,8 @@ function mistakeLog(){
 let mistakeCat='';
 const mistakeMatch = e => !mistakeCat || (mistakeCat.startsWith('tag:') ? (e.tags||[]).includes(mistakeCat.slice(4)) : e.cat===mistakeCat);
 function mistakeRows(list){
-  return list.map(e=>`<tr ${e.id?`data-item="${esc(e.id)}"`:''}><td><div class="small muted">${esc(catName(e.cat))} · ${esc(fmtDate(e.last))}${e.n>1?` · <b>${e.n}×</b>`:''}</div><div class="small"${e.es?' lang="es"':''}>${esc(e.q)}</div>
-    <div class="ans-row bad-t">${ic('x','sm')}<span class="${e.given?'struck':''}">${esc(e.given)||T('(blank)','(en blanco)')}</span></div><div class="ans-row ok-t">${ic('check','sm')}<b>${esc(e.correct)}</b></div></td>${e.id?`<td class="v">${ic('chev','sm')}</td>`:'<td></td>'}</tr>`).join('');
+  return list.map(e=>`<tr ${e.id?`data-item="${esc(e.id)}"`:e.uid?`data-unit="${esc(e.uid)}"`:''}><td><div class="small muted">${esc(catName(e.cat))} · ${esc(fmtDate(e.last))}${e.n>1?` · <b>${e.n}×</b>`:''}</div><div class="small"${e.es?' lang="es"':''}>${esc(e.q)}</div>
+    <div class="ans-row bad-t">${ic('x','sm')}<span class="${e.given?'struck':''}">${esc(e.given)||T('(blank)','(en blanco)')}</span></div><div class="ans-row ok-t">${ic('check','sm')}<b>${esc(e.correct)}</b></div></td>${e.id||e.uid?`<td class="v">${ic('chev','sm')}</td>`:'<td></td>'}</tr>`).join('');
 }
 function renderMistakes(){
   const all=mistakeLog(), cats=[...new Set(all.map(e=>e.cat))], tags=[...new Set(all.flatMap(e=>e.tags||[]))].map(t=>'tag:'+t), list=all.filter(mistakeMatch);
@@ -156,7 +157,7 @@ function mocksHTML(){
 }
 function bankHTML(c){
   const seen=c.total-c.unseen;
-  return `<h2>${T('Word bank','Banco de palabras')}</h2>
+  return `<h2>${T('Learning bank','Banco de aprendizaje')}</h2>
     <div class="bank" role="img" aria-label="${T(`${c.mastered} mastered, ${c.learned} learnt, ${seen} seen of ${c.total}`,`${c.mastered} dominadas, ${c.learned} aprendidas, ${seen} vistas de ${c.total}`)}">
       <div class="m" style="width:${c.total?c.mastered/c.total*100:0}%"></div><div class="l" style="width:${c.total?(c.learned-c.mastered)/c.total*100:0}%"></div><div class="s" style="width:${c.total?(seen-c.learned)/c.total*100:0}%"></div></div>
     <div class="row wrap small muted bankkey"><span><i class="m"></i>${T('Mastered','Dominadas')} ${c.mastered}</span><span><i class="l"></i>${T('Learnt','Aprendidas')} ${c.learned-c.mastered}</span><span><i class="s"></i>${T('Seen','Vistas')} ${seen-c.learned}</span><span>${T(`${seen} of ${c.total} seen · ${c.unseen} new available`,`${seen} de ${c.total} vistas · ${c.unseen} nuevas disponibles`)}</span></div>

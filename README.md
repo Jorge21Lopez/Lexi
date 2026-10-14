@@ -1,7 +1,7 @@
 # Lexi
 
 App para preparar el **Cambridge B1 Preliminary (PET)** y dar el salto a **B2**.
-Incluye vocabulario con repetición espaciada (con formatos que rotan de elegir a escribir), test mixto de todo el contenido, retos (diario, contrarreloj, muerte súbita…), seguimiento detallado, phrasal verbs en contexto, apuntes propios, plantillas y recursos de writing, libro de gramática, verbos irregulares, phrasal verbs, guías del examen, tests por temas, práctica por partes, simulacros cronometrados (Reading, Listening, Use of English B2, Writing) y práctica de Speaking.
+Desde la v7 todo se practica por **unidades de aprendizaje** (phrasal verbs, conectores, collocations, irregulares, familias de palabras, transformaciones, vocabulario y gramática) con 35 formatos de ejercicio que van del significado al uso y a la producción, una práctica diaria mezclada por áreas, sesiones de *Learn new*, tarjetas, tests por librería, test mixto de todo el contenido, retos (diario, contrarreloj, muerte súbita…), seguimiento detallado, phrasal verbs en contexto, apuntes propios, plantillas y recursos de writing, libro de gramática, verbos irregulares, phrasal verbs, guías del examen, tests por temas, práctica por partes, simulacros cronometrados (Reading, Listening, Use of English B2, Writing) y práctica de Speaking.
 La app está en inglés por defecto, con selector de idioma (EN/ES) en Datos y en la cabecera.
 Funciona sin conexión, guarda todo en tu móvil y se corrige junto con Claude mediante exportaciones.
 
@@ -39,15 +39,29 @@ Haz commit y push a `main` (o sube los archivos con Add file → Upload files). 
 
 Configuración (una sola vez): **Settings → Pages → Source: GitHub Actions**. El progreso de cada despliegue se ve en la pestaña **Actions**.
 
-**Pruebas** (antes de publicar): `node tests/run.js`. Recorren todas las pantallas en inglés y en español, cargan un estado guardado de la v5 y comprueban los flujos (sesiones, test mixto, retos, Progress y exportación). No hace falta instalar nada; la carpeta `tests` no se publica.
+**Pruebas** (antes de publicar): `node tests/run.js`. Recorren todas las pantallas en inglés y en español, migran un estado guardado de la v6, validan los 35 formatos con todas las unidades y comprueban cobertura, variedad, enfriamiento, etapas, rendimiento, packs y exportación. No hace falta instalar nada; la carpeta `tests` no se publica.
 
 ---
 
 ## Para Claude: formatos
 
-**Exportación** (`format: "lexi-export"`, v3): `summary.vocab`, `summary.tests`, `summary.grammarBestPct`, `summary.irregularTrouble`, `summary.topErrorsAllTime`; `attempts` (vocabulario), `items`, `srs`, `tests` (con `parts` y `mistakes`: pregunta, respuesta dada y correcta), `writings` (con `form`, `task`, `text`, `timedMock`, `minutes`), `notes` (apuntes marcados como listos: `id`, `title`, `template`, `text`) e `installed` (ids de tareas, temas y simulacros ya instalados, para no repetir).
+**Exportación** (`format: "lexi-export"`, **v4** desde Lexi 7; ver más abajo lo nuevo). Base heredada de la v3: `summary.vocab`, `summary.tests`, `summary.grammarBestPct`, `summary.irregularTrouble`, `summary.topErrorsAllTime`; `attempts` (vocabulario), `items`, `srs`, `tests` (con `parts` y `mistakes`: pregunta, respuesta dada y correcta), `writings` (con `form`, `task`, `text`, `timedMock`, `minutes`), `notes` (apuntes marcados como listos: `id`, `title`, `template`, `text`) e `installed` (ids de tareas, temas y simulacros ya instalados, para no repetir).
 
-Novedades de la v3 (todo lo de la v2 sigue igual):
+Novedades de la v4 (Lexi 7; todo lo anterior sigue, salvo `summary.accuracyByFormat`, que ahora es por formato exacto):
+
+| Campo | Contenido |
+|---|---|
+| `attempts[].uid` | Unidad practicada: `pv:give up`, `cn:however`, `col:make a decision`, `irr:swim`, `wf:employ`, `tr:<id>`, `voc:<id del ítem>`, `gr:<tema>:<hash>`. Los intentos antiguos la deducen de su `id`. |
+| `attempts[].format` / `skill` | Uno de los 35 formatos (`meaning`, `particle`, `connfn`, `spotfix`, `kwt`…) y su habilidad: `recognise`, `understand`, `use`, `produce`. |
+| `attempts[].question` / `correct` | Solo en los fallos: el enunciado y la respuesta correcta. |
+| `units`, `unitState` | Datos de cada unidad tocada (término, librería, nivel) y su estado: `stage` 0–5, `seen`, `correct`, `lapses`, `intervalDays`, `due`, `bySkill`, `lastFormats`. |
+| `summary.units` | Por librería: total y cuántas hay en cada etapa (`new`, `learning`, `familiar`, `known`, `strong`, `mastered`). |
+| `summary.accuracyBySkill` / `accuracyByFormat` | `{ n, ok }` por habilidad y por formato. `accuracyByFormatGroup` conserva el agrupado antiguo (choice/write/translate/dictation). |
+| `summary.stuck` | Unidades con 3 fallos o más en la última semana, con sus últimas respuestas. |
+| `summary.learnList` | La lista "Mi lista de aprendizaje". |
+| `productions` | Frases propias del formato *Your own sentence* (`uid`, `term`, `prompt`, `text`, `selfAssessed`): corrígelas. |
+
+Novedades de la v3:
 
 | Campo | Contenido |
 |---|---|
@@ -137,3 +151,13 @@ Topics: travel, work, shopping, health, education, relationships, freetime, envi
 **Apuntes → pack:** convierte cada apunte en una página `section: "notes"` (HTML con `<h4>`, `<table>`, `<p class="ex">` para ejemplos y `<p class="tip">` para consejos). Si pide ejercicios, añade `items` o un tema en `grammar` con `test`. Las listas de vocabulario van a `items`; los phrasal verbs, a `phrasal` (en cada ejemplo, el verbo va entre `*asteriscos*`; cada uno genera automáticamente un ejercicio en contexto). Incluye `convertedNotes` con los ids de los apuntes procesados.
 
 Temas de phrasal (`theme`): rutina, relaciones, viajes, trabajo, problemas, comunicacion, dinero, salud, ocio.
+
+**Librerías nuevas en los packs (v7, todo opcional).** El detalle de campos, ejemplos JSON y reglas está en `lexi-prompt-formatos.md`:
+
+- `connectors`: `w`, `fn` (add, contrast, reason, result, purpose, example, sequence, opinion, conclusion, condition, time), `level`, `register`, `pattern`, `es`, `en`, `ex` (2+ con el conector entre `*asteriscos*`), `wrong` (`"frase mal => frase bien"`), `confuseWith`, `alsoCorrect`, `join`.
+- `collocations`: `c`, `verb`, `noun`, `es`, `en`, `ex` (collocation entre asteriscos), `wrongVerb`, `theme`, `alsoCorrect` (se aceptan), `avoid` (cambian el sentido: ni se aceptan ni salen como opción).
+- `families`: `base`, `es`, `forms` (`{ noun, verb, adj, adv, negAdj, person… }`), `ex` (una frase por forma, con la palabra entre asteriscos).
+- `transformations`: `id`, `structure`, `from`, `key`, `to` (con `___`), `answers`, `exp`, `exp_en`.
+- En `phrasal`, campos nuevos: `syn` (con `~` delante si solo es aproximado), `register`, `confuseWith`, `wrong`, `particleMeaning`, `particleMeaning_en`, `sit` (situación que describe).
+- En `items`, campos nuevos: `alsoCorrect`, `confuseWith`, `wrong`, `tags`.
+- `learnList` (dentro de `pack` o arriba): uids que se añaden a "Mi lista de aprendizaje".

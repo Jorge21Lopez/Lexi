@@ -38,7 +38,7 @@ function boot(opts = {}){
     navigator:{}, location:{ protocol:'file:' },
     setTimeout: () => 0, clearTimeout: () => {}, setInterval: () => 0,
     requestAnimationFrame: () => 0, confirm: () => true, prompt: () => null,
-    scrollTo: () => {}, scrollY: 0,
+    scrollTo: () => {}, scrollY: 0, performance: require('perf_hooks').performance,
   };
   sandbox.window = sandbox;
   const ctx = vm.createContext(sandbox);

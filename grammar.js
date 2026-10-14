@@ -489,3 +489,108 @@ wake|woke|woken|despertar
 wear|wore|worn|llevar puesto
 win|won|won|ganar
 write|wrote|written|escribir`.split('\n').map(l=>{const [b,p,pp,es]=l.split('|');return {b,p,pp,es};});
+
+// v7: grupo (patrón) y dos ejemplos de cada irregular: uno en pasado y otro con el participio, marcados con *asteriscos*.
+// Grupos: same-3 (cut–cut–cut), i-a-u (sing–sang–sung), ought (buy–bought–bought), o-en (break–broke–broken),
+// ew-own (grow–grew–grown), i-o-en (write–wrote–written), base-pp (come–came–come), t-ending (keep–kept–kept),
+// i-u-u (dig–dug–dug), d-ending (sell–sold–sold), en-pp (take–took–taken), ore-orn (wear–wore–worn), other.
+window.LEXI_IRREGULAR_EXTRA = `be|en-pp|I *was* tired after the trip.||I have *been* to London twice.
+beat|en-pp|Spain *beat* Italy 2–1.||We've never *beaten* them before.
+become|base-pp|She *became* a doctor in 2015.||He has *become* very famous.
+begin|i-a-u|The film *began* at eight.||Have you *begun* your homework?
+bite|en-pp|The dog *bit* my hand.||I've been *bitten* by mosquitoes.
+blow|ew-own|The wind *blew* all night.||The storm has *blown* the roof off.
+break|o-en|I *broke* my arm last year.||Someone has *broken* the window.
+bring|ought|She *brought* a cake to the party.||Have you *brought* your passport?
+build|t-ending|They *built* the bridge in 1990.||The house was *built* in 1900.
+burn|t-ending|I *burnt* my finger on the oven.||The toast is *burnt*!
+buy|ought|I *bought* a new phone yesterday.||Have you *bought* the tickets?
+catch|ought|We *caught* the last train.||I've *caught* a cold.
+choose|o-en|She *chose* the red dress.||Have you *chosen* a name for the baby?
+come|base-pp|He *came* home late.||Winter has *come* early this year.
+cost|same-3|The tickets *cost* 50 euros.||How much has it *cost* so far?
+cut|same-3|I *cut* my finger yesterday.||Have you *cut* your hair?
+deal|t-ending|She *dealt* with the problem quickly.||The manager has *dealt* with your complaint.
+dig|i-u-u|The dog *dug* a hole in the garden.||They have *dug* a tunnel under the river.
+do|en-pp|I *did* my homework after dinner.||Have you *done* the shopping?
+draw|ew-own|She *drew* a picture of her cat.||He has *drawn* a map for us.
+dream|t-ending|I *dreamt* about you last night.||I've always *dreamt* of visiting Japan.
+drink|i-a-u|We *drank* lemonade at the picnic.||Who has *drunk* my coffee?
+drive|i-o-en|He *drove* to Madrid on Sunday.||Have you ever *driven* on the left?
+eat|en-pp|We *ate* paella on the beach.||Have you *eaten* yet?
+fall|en-pp|She *fell* off her bike.||Prices have *fallen* this month.
+feed|d-ending|I *fed* the cat this morning.||Has the baby been *fed*?
+feel|t-ending|I *felt* sick after the meal.||I've never *felt* so happy.
+fight|ought|The two boys *fought* in the playground.||They have *fought* for their rights for years.
+find|d-ending|I *found* a wallet in the street.||Have you *found* your keys?
+fly|ew-own|We *flew* to Rome last summer.||I've never *flown* in a helicopter.
+forget|o-en|I *forgot* my umbrella.||Have you *forgotten* my name?
+forgive|en-pp|She *forgave* him for being late.||I've *forgiven* you.
+freeze|o-en|The lake *froze* last winter.||The water has *frozen*.
+get|t-ending|I *got* a letter yesterday.||She has *got* a new job.
+give|en-pp|He *gave* me a present.||Have you *given* her the message?
+go|en-pp|We *went* to the beach yesterday.||She has *gone* to the shops.
+grow|ew-own|The plant *grew* very quickly.||You've *grown* so much!
+hang|i-u-u|She *hung* the picture on the wall.||Have you *hung* the washing out?
+have|d-ending|We *had* a great time.||I've *had* this bike for years.
+hear|d-ending|I *heard* a strange noise.||Have you *heard* the news?
+hide|en-pp|He *hid* the money under the bed.||Where have you *hidden* the chocolate?
+hit|same-3|The ball *hit* the window.||A car has *hit* a tree.
+hold|d-ending|She *held* the baby carefully.||The meeting was *held* in Paris.
+hurt|same-3|I *hurt* my back playing tennis.||Nobody was *hurt* in the accident.
+keep|t-ending|He *kept* all her letters.||Have you *kept* the receipt?
+know|ew-own|I *knew* the answer.||I've *known* her since school.
+lay|d-ending|She *laid* the table for dinner.||The hen has *laid* an egg.
+lead|d-ending|The guide *led* us through the forest.||Her hard work has *led* to success.
+learn|t-ending|I *learnt* to swim when I was five.||What have you *learnt* today?
+leave|t-ending|The train *left* on time.||He has *left* the company.
+lend|t-ending|My brother *lent* me his car.||I've *lent* my laptop to a friend.
+let|same-3|My parents *let* me go to the concert.||They have never *let* me stay out late.
+lie|en-pp|The cat *lay* in the sun all afternoon.||The book had *lain* on the table for days.
+light|t-ending|We *lit* a fire on the beach.||Have you *lit* the candles?
+lose|t-ending|I *lost* my keys yesterday.||We've *lost* the match.
+make|d-ending|She *made* a delicious cake.||Have you *made* your bed?
+mean|t-ending|Sorry, I *meant* Tuesday, not Thursday.||I've always *meant* to learn the piano.
+meet|t-ending|I *met* my wife at university.||Have you *met* my brother?
+pay|d-ending|I *paid* for the meal.||Have you *paid* the bill?
+put|same-3|I *put* my keys on the table.||Where have you *put* my glasses?
+read|same-3|I *read* that book last year.||Have you *read* the instructions?
+ride|i-o-en|She *rode* her horse to the village.||Have you ever *ridden* a camel?
+ring|i-a-u|The phone *rang* at midnight.||Has the bell *rung* yet?
+rise|i-o-en|The sun *rose* at six.||Prices have *risen* again.
+run|base-pp|He *ran* a marathon last year.||I've never *run* so fast.
+say|d-ending|She *said* goodbye and left.||Have you *said* sorry to her?
+see|en-pp|I *saw* a great film yesterday.||Have you ever *seen* snow?
+sell|d-ending|We *sold* our old car.||All the tickets have been *sold*.
+send|t-ending|I *sent* you an email this morning.||Have you *sent* the invitations?
+set|same-3|She *set* the table for dinner.||The date has been *set* for June.
+shake|en-pp|He *shook* my hand.||The building was *shaken* by the earthquake.
+shine|other|The sun *shone* all day.||The sun has *shone* every day this week.
+shoot|t-ending|He *shot* the ball into the net.||The film was *shot* in Ireland.
+show|en-pp|She *showed* me her photos.||Have you *shown* him the flat?
+shut|same-3|He *shut* the door quietly.||The shop has *shut* for the day.
+sing|i-a-u|We *sang* happy birthday.||She has *sung* in many countries.
+sink|i-a-u|The Titanic *sank* in 1912.||The boat has *sunk*.
+sit|t-ending|We *sat* in the front row.||I've *sat* here for an hour.
+sleep|t-ending|I *slept* for ten hours.||Have you *slept* well?
+speak|o-en|I *spoke* to the manager.||Have you *spoken* to your teacher?
+spell|t-ending|He *spelt* my name wrong.||You've *spelt* this word incorrectly.
+spend|t-ending|We *spent* a week in Greece.||I've *spent* all my money.
+spread|same-3|The news *spread* quickly.||The fire has *spread* to the next building.
+stand|d-ending|We *stood* in the queue for an hour.||I've *stood* here all day.
+steal|o-en|Someone *stole* my wallet.||My bike has been *stolen*.
+stick|i-u-u|She *stuck* a photo on the fridge.||The door has *stuck* again.
+sting|i-u-u|A bee *stung* me on the arm.||Have you ever been *stung* by a wasp?
+swim|i-a-u|We *swam* in the lake.||Have you ever *swum* in a lake?
+take|en-pp|I *took* the bus to work.||Who has *taken* my pen?
+teach|ought|My mum *taught* me to cook.||She has *taught* English for 20 years.
+tear|ore-orn|He *tore* his jeans on the fence.||The page has been *torn* out.
+tell|d-ending|She *told* me a secret.||Have you *told* your parents?
+think|ought|I *thought* you were at work.||Have you *thought* about my offer?
+throw|ew-own|He *threw* the ball to me.||Who has *thrown* this rubbish here?
+understand|d-ending|I *understood* everything.||Have you *understood* the question?
+wake|o-en|I *woke* up at six.||The noise has *woken* the baby.
+wear|ore-orn|She *wore* a red dress to the party.||I've never *worn* a suit.
+win|i-u-u|Spain *won* the World Cup in 2010.||Have you ever *won* a prize?
+write|i-o-en|He *wrote* a letter to his grandma.||She has *written* three books.`
+.split('\n').reduce((m,l)=>{ const [b,group,...ex]=l.split('|'); m[b]={ group, ex:ex.join('|').split('||').map(s=>s.trim()) }; return m; }, {});

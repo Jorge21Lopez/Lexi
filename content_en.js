@@ -677,3 +677,103 @@ window.LEXI_EN.phrasal = {
 'eat out':'eat in a restaurant','hang out':'spend time relaxing with friends','take up':'start a new hobby or activity',
 'join in':'take part in an activity','sign up':'register for a course or activity','come across':'find something or someone by chance'
 };
+// v7: meaning of each irregular verb in simple English (base | meaning)
+window.LEXI_EN.irregular = `be|exist; have a quality or state
+beat|win against someone; hit many times
+become|start to be
+begin|start
+bite|cut with your teeth
+blow|move air out of your mouth; (wind) move
+break|separate into pieces; damage
+bring|carry something to a place
+build|make a house, wall, etc.
+burn|be on fire; hurt with heat
+buy|get something by paying for it
+catch|take something moving in your hands; get an illness
+choose|decide which one you want
+come|move towards the speaker
+cost|have a price of
+cut|divide with a knife or scissors
+deal|take action about a problem
+dig|make a hole in the ground
+do|perform an action
+draw|make a picture with a pen or pencil
+dream|have pictures in your mind while you sleep
+drink|take liquid into your mouth
+drive|control a car
+eat|put food in your mouth and swallow it
+fall|go down to the ground suddenly
+feed|give food to a person or animal
+feel|experience an emotion or a sensation
+fight|use force against someone
+find|discover something you were looking for
+fly|travel through the air
+forget|not remember
+forgive|stop being angry with someone
+freeze|become ice; be very cold
+get|receive; become
+give|hand something to someone
+go|move from one place to another
+grow|become bigger
+hang|fix something at the top so the rest is free
+have|own; possess
+hear|notice sounds with your ears
+hide|put something where no one can see it
+hit|touch something hard and fast
+hold|have something in your hands
+hurt|cause pain
+keep|continue to have
+know|have information in your mind
+lay|put something down carefully
+lead|show the way; be in charge
+learn|get new knowledge or a skill
+leave|go away from a place
+lend|give something for a short time
+let|allow
+lie|be in a flat position
+light|make something start to burn
+lose|not be able to find; not win
+make|create; produce
+mean|have as a meaning; intend
+meet|see someone and talk to them
+pay|give money for something
+put|move something to a place
+read|look at words and understand them
+ride|travel on a horse or a bike
+ring|make a sound like a bell; phone
+rise|go up
+run|move fast on your feet
+say|speak words
+see|notice with your eyes
+sell|give something for money
+send|make something go to another place
+set|put; decide a date or time
+shake|move quickly up and down or side to side
+shine|give out light
+shoot|fire a gun; kick or throw a ball at the goal
+show|let someone see something
+shut|close
+sing|make music with your voice
+sink|go down below the surface of water
+sit|rest on a chair
+sleep|rest with your eyes closed
+speak|say words; talk
+spell|say or write the letters of a word
+spend|use money or time
+spread|cover a surface; reach more places
+stand|be on your feet
+steal|take something that isn't yours
+stick|fix with glue; get stuck
+sting|hurt with a small sharp point (insects)
+swim|move through water
+take|carry or move something; get hold of it
+teach|help someone learn
+tear|pull something apart
+tell|give information to someone
+think|have an idea or opinion
+throw|send something through the air with your hand
+understand|know the meaning of something
+wake|stop sleeping
+wear|have clothes on your body
+win|be first in a competition
+write|put words on paper or a screen`.split('\n').reduce((m,l)=>{ const [b,en]=l.split('|'); m[b]=en; return m; }, {});
