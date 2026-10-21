@@ -97,7 +97,7 @@ function mistakeLog(){
   for(const a of S.attempts) if(a.r==='bad'){ const it=ITEMS.get(a.id);
     if(!it || it.virtual==='ph'){ const u=UNITS.get(unitOfAttempt(a)); if(u) put(u.uid, { id:null, uid:u.uid, cat:u.lib, tags:[], q:a.q||unitName(u), es:a.f==='translate', correct:a.c||unitName(u) }, a.t, a.a||''); continue; }
     put(a.id, { id:a.id, cat:it.cat, tags:it.tags||[], q:a.q||questionText(it), es:it.type==='translate' || a.f==='translate', correct:a.c||correctText(it) }, a.t, a.a||''); }
-  for(const t of S.tests){ if(t.kind==='mixed') continue;
+  for(const t of S.tests){ if(t.kind==='mixed' || t.kind==='route') continue;
     for(const d of t.detail||[]) if(d.r!=='ok'){ const id=detailRef(t,d), it=id && ITEMS.get(id);
       if(it) put(id, { id, cat:it.cat, tags:it.tags||[], q:questionText(it), correct:correctText(it) }, t.at, d.given);
       else put(`${t.kind}:${d.task}:${d.n}`, { id:null, tags:[], cat:t.kind==='topic'?'grammar':t.kind==='mock'?'mock':(t.section||t.kind), q:d.stem||`${t.title} · ${d.n}`, correct:d.correct, title:t.title }, t.at, d.given); } }
@@ -129,8 +129,10 @@ function renderItem(){
   const shown=it.type==='translate' ? `<div class="small muted">${T('In Spanish:','En español:')}</div><div class="es">${esc(it.es)}</div><p class="sentence"><span class="slot ok">${esc(correctText(it))}</span></p>`
     : it.type==='dictation' ? `<p class="sentence">${esc(it.text)}</p>` : sentenceHTML(it.prompt||'', correctText(it), 'ok');
   const resIc=r=>`<span class="${r==='bad'?'bad-t':r==='near'?'':'ok-t'}">${ic(r==='bad'?'x':'check','sm')}</span>`;
-  return `${backBar(it.word||correctText(it), itemBack)}
-    <div class="card sheet"><div class="ch"><span class="t">${esc(catName(it.cat))}</span><span class="lv">${esc(it.level||'')}</span></div><div class="cb">${shown}${it.gtopic&&GRAMMAR.get(it.gtopic)?`<div class="small muted">${esc(L(GRAMMAR.get(it.gtopic),'title'))}</div>`:''}</div></div>
+  const uid=uidOfItem(it.id), g=it.gtopic&&GRAMMAR.get(it.gtopic);
+  return `${backBar(it.word||correctText(it), itemBack, uid&&UNITS.has(uid)?saveBtn(uid, it.word||correctText(it)):'')}
+    <div class="card sheet"><div class="ch"><span class="t">${esc(catName(it.cat))}</span><span class="lv">${esc(it.level||'')}</span></div><div class="cb">${shown}${g?`<div class="small muted">${esc(L(g,'title'))}</div>`:''}</div></div>
+    ${g?`<button class="btn block" data-save="grammar:${esc(g.id)}" style="margin-bottom:12px">${ic(routesWith('grammar:'+g.id).length?'bookmarkf':'bookmark','sm')} ${T(`Save the topic "${L(g,'title')}" to a route`,`Guardar el tema "${L(g,'title')}" en una ruta`)}</button>`:''}
     ${L(it,'exp')?`<div class="panel"><b>${T('Why','Por qué')}</b><p class="small" style="margin:6px 0 0">${esc(L(it,'exp'))}</p></div>`:''}
     <table class="cd"><tbody>
       <tr><td class="k">${T('Next review','Próximo repaso')}</td><td>${s?(s.due<=Date.now()?T('Due now','Ya toca'):esc(fmtDate(s.due))):T('Not in your reviews','No está en tus repasos')}</td></tr>

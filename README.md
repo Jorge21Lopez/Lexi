@@ -45,7 +45,17 @@ Configuración (una sola vez): **Settings → Pages → Source: GitHub Actions**
 
 ## Para Claude: formatos
 
-**Exportación** (`format: "lexi-export"`, **v4** desde Lexi 7; ver más abajo lo nuevo). Base heredada de la v3: `summary.vocab`, `summary.tests`, `summary.grammarBestPct`, `summary.irregularTrouble`, `summary.topErrorsAllTime`; `attempts` (vocabulario), `items`, `srs`, `tests` (con `parts` y `mistakes`: pregunta, respuesta dada y correcta), `writings` (con `form`, `task`, `text`, `timedMock`, `minutes`), `notes` (apuntes marcados como listos: `id`, `title`, `template`, `text`) e `installed` (ids de tareas, temas y simulacros ya instalados, para no repetir).
+**Exportación** (`format: "lexi-export"`, **v5** desde Lexi 7.1; ver más abajo lo nuevo). Base heredada de la v3: `summary.vocab`, `summary.tests`, `summary.grammarBestPct`, `summary.irregularTrouble`, `summary.topErrorsAllTime`; `attempts` (vocabulario), `items`, `srs`, `tests` (con `parts` y `mistakes`: pregunta, respuesta dada y correcta), `writings` (con `form`, `task`, `text`, `timedMock`, `minutes`), `notes` (apuntes marcados como listos: `id`, `title`, `template`, `text`) e `installed` (ids de tareas, temas y simulacros ya instalados, para no repetir).
+
+Novedades de la v5 (Lexi 7.1, rutas propias; detalle y ejemplos JSON en `docs/lexi-prompt-formatos.md`, sección 5):
+
+| Campo | Contenido |
+|---|---|
+| `attempts[].routeId` / `routeMode` | Solo si la actividad se hizo desde una ruta: su id y `learn`, `practise`, `flashcards` o `test`. |
+| `routes` | Rutas creadas, cambiadas o estudiadas desde el último envío (todas en la copia completa): `id`, `name`, `source` (`user` o `pack`), elementos (`ref`, `addedAt`, etapa, veces preguntada, % de acierto, último resultado; los que no existen llevan `pending`) y `summary` (% en Known o más, teoría leída, minutos, sesiones, tests, última actividad). |
+| `routeTests` | Tests de ruta del periodo: opciones, nota, duración, desglose por tipo, habilidad y formato, y **todos** los fallos (`question`, `given`, `correct`, `uid`, `format`). Ya no se repiten en `tests`. |
+| `summary.routes` | Por ruta con actividad: evolución de la nota (`scores`) y puntos débiles (`weak`). |
+| `summary.learnList` | Ahora son las referencias de la ruta "My learning list". |
 
 Novedades de la v4 (Lexi 7; todo lo anterior sigue, salvo `summary.accuracyByFormat`, que ahora es por formato exacto):
 
@@ -58,7 +68,6 @@ Novedades de la v4 (Lexi 7; todo lo anterior sigue, salvo `summary.accuracyByFor
 | `summary.units` | Por librería: total y cuántas hay en cada etapa (`new`, `learning`, `familiar`, `known`, `strong`, `mastered`). |
 | `summary.accuracyBySkill` / `accuracyByFormat` | `{ n, ok }` por habilidad y por formato. `accuracyByFormatGroup` conserva el agrupado antiguo (choice/write/translate/dictation). |
 | `summary.stuck` | Unidades con 3 fallos o más en la última semana, con sus últimas respuestas. |
-| `summary.learnList` | La lista "Mi lista de aprendizaje". |
 | `productions` | Frases propias del formato *Your own sentence* (`uid`, `term`, `prompt`, `text`, `selfAssessed`): corrígelas. |
 
 Novedades de la v3:
@@ -160,4 +169,5 @@ Temas de phrasal (`theme`): rutina, relaciones, viajes, trabajo, problemas, comu
 - `transformations`: `id`, `structure`, `from`, `key`, `to` (con `___`), `answers`, `exp`, `exp_en`.
 - En `phrasal`, campos nuevos: `syn` (con `~` delante si solo es aproximado), `register`, `confuseWith`, `wrong`, `particleMeaning`, `particleMeaning_en`, `sit` (situación que describe).
 - En `items`, campos nuevos: `alsoCorrect`, `confuseWith`, `wrong`, `tags`.
-- `learnList` (dentro de `pack` o arriba): uids que se añaden a "Mi lista de aprendizaje".
+- `learnList` (dentro de `pack` o arriba): uids que se añaden a la ruta "My learning list".
+- `routes` (v7.1): rutas de estudio para el alumno, `{ "id", "name", "name_en", "icon", "items": ["pv:find out", "cn:in case", "grammar:g-future", "page:<id>"] }`. Las referencias que no existen se muestran como pendientes; si el alumno cambió la ruta, al reimportar se le pregunta si actualizarla o conservar la suya.

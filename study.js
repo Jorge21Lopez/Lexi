@@ -69,11 +69,14 @@ function questionOf(ex){
 }
 
 /* ---------- Session flow ---------- */
-const RETRY_MODES=['daily','extra','new','learn'];
+const RETRY_MODES=['daily','extra','new','learn','route'];
+const QUIZ_MODES=['mixed','focused','challenge','libtest','routetest'];
 const updatesUnits = ss => !(ss.mode==='challenge' && CH_NO_SRS.includes(ss.ch));
+// o.routeId / o.routeMode: activity started from a route (learn, practise, flashcards, test), recorded with every answer
 function startEx(exs, o={}){
   if(!exs || !exs.filter(isExercise).length){ toast(T('There is nothing to practise with these options.','No hay nada que practicar con estas opciones.')); return false; }
   const secs=o.secs; delete o.secs;
+  if(o.routeId) routeTouch(o.routeId, o.routeMode);
   S.session=Object.assign({ q:exs, i:0, retried:[], results:[], started:Date.now(), answered:-1, mode:'daily' }, o, { deadline:secs?Date.now()+secs*1000:null });
   current=null; trackPos=0; save(); go('session'); return true;
 }
@@ -129,6 +132,7 @@ function check(ans){
   for(const p of g.parts){
     const rec={ id:legacyId(p.uid), u:p.uid, t:Date.now(), r:p.r, ms:Math.round(ms/g.parts.length), a:String(answerText(ex, ans, p)).slice(0,300), f:ex.format, s:ex.skill, m:ss.mode, h:hint?1:0 };
     if(p.r==='bad'){ rec.q=questionOf(ex).slice(0,160); rec.c=String(correctOfEx(ex, p)).slice(0,120); }
+    if(ss.routeId){ rec.rid=ss.routeId; rec.rm=ss.routeMode; }
     S.attempts.push(rec);
   }
   ss.results.push({ id:legacyId(ex.uid), uid:ex.uid, uids:g.parts.map(p=>p.uid), r:g.r, a:String(answerText(ex, ans)).slice(0,300), c:String(correctOfEx(ex)).slice(0,200), f:ex.format, s:ex.skill, q:questionOf(ex).slice(0,200) });
@@ -152,7 +156,7 @@ function gotIt(){ const ss=S.session; if(!ss || !current) return; const ex=curre
 function next(){ const ss=S.session; if(!ss) return; ss.i++; current=null; if(ss.i>=ss.q.length) finishSession(ss); save(); render(); }
 function finishSession(ss){
   if(ss.done) return;
-  if(['mixed','focused','challenge','libtest'].includes(ss.mode)) return finishQuiz(ss);
+  if(QUIZ_MODES.includes(ss.mode)) return finishQuiz(ss);
   ss.done=true; const d=today();
   if(ss.mode==='daily') d.ds=(d.ds||0)+1;
   if(ss.mode==='learn') d.ln=(d.ln||0)+1;
@@ -286,8 +290,9 @@ function exerciseHTML(ex, cur, n){
     if(res==='bad' && ex.kind==='text' && ex.format!=='dictation') rows.push(`<tr><td class="k">${T('Yours','La tuya')}</td><td>${esc(cur.answer)||T('(blank)','(en blanco)')}</td></tr>`);
     if(exp) rows.push(`<tr><td class="k">${T('Why','Por qué')}</td><td class="small" style="white-space:pre-line">${esc(exp)}</td></tr>`);
     const listen=ex.show||correct;
+    const u=UNITS.get(ex.uid);
     foot=`<div class="verdict ${res}"><span class="mk">${ic(res==='bad'?'x':'check')}</span><h3>${title}</h3>
-        ${listen?`<button class="icon-btn sm" style="margin-left:auto" data-say="${esc(plain(listen))}" aria-label="${T('Listen','Escuchar')}">${ic('speaker','sm')}</button>`:''}</div>
+        <span class="row" style="margin-left:auto;gap:6px">${listen?`<button class="icon-btn sm" data-say="${esc(plain(listen))}" aria-label="${T('Listen','Escuchar')}">${ic('speaker','sm')}</button>`:''}${u?saveBtn(u.uid, unitName(u), 'sm'):''}</span></div>
       ${rows.length?`<div class="fbt"><table class="cd"><tbody>${rows.join('')}</tbody></table></div>`:''}
       ${ex.lib!=='voc'&&ex.lib!=='gr'&&UNITS.has(ex.uid)?`<button class="btn ghost block" data-unit="${esc(ex.uid)}">${T('See the card','Ver la ficha')}</button>`:''}
       <button class="btn primary block big" id="next" data-act="next">${T('Next','Siguiente')} ${ic('go')}</button>`;
@@ -311,13 +316,14 @@ function presentHTML(ex){
 }
 function renderSummary(){
   const ss=S.session;
-  if(['mixed','focused','challenge','libtest'].includes(ss.mode)) return quizSummaryHTML(ss);
+  if(QUIZ_MODES.includes(ss.mode)) return quizSummaryHTML(ss);
   const first={}; for(const r of ss.results) if(!(r.uid in first)) first[r.uid]=r.r;
   const ids=Object.keys(first), ok=ids.filter(id=>first[id]!=='bad').length;
   const failed=ids.filter(id=>first[id]==='bad').map(id=>UNITS.get(id)).filter(Boolean);
   const dots=ss.results.map(r=>`<i class="${r.r}"></i>`).join('');
   trackPos=0;
-  const again = ss.mode==='learn' ? `data-act="learnmore"` : ss.mode==='practise' ? `data-practise="${esc(ss.uids[0])}"` : ss.mode==='flash' ? `data-flashlib="${esc(ss.lib)}"` : 'data-act="again"';
+  const rid=ss.routeId && routeById(ss.routeId) ? esc(ss.routeId) : '';
+  const again = rid ? `data-routego="${ss.mode==='route'?'practise':ss.mode==='flash'?'flash':'learn'}" data-rid="${rid}"` : ss.mode==='learn' ? `data-act="learnmore"` : ss.mode==='practise' ? `data-practise="${esc(ss.uids[0])}"` : ss.mode==='flash' ? `data-flashlib="${esc(ss.lib)}"` : 'data-act="again"';
   const introduced=ss.mode==='learn' ? (ss.uids||[]).map(id=>UNITS.get(id)).filter(Boolean) : [];
   return `<div class="sess-top"><button class="icon-btn" data-act="finish" aria-label="${T('Back to home','Volver al inicio')}">${ic('close')}</button>
       <div class="track" aria-hidden="true"><div class="leg" data-to="1" style="transform:scaleX(0)"></div>${dots}</div><span class="count">${T('Finish','Meta')}</span></div>
@@ -329,13 +335,17 @@ function renderSummary(){
       ${ss.mode==='daily'||ss.mode==='extra'?`<button class="btn primary big block" data-act="keepgoing">${T('Keep going (10 more)','Seguir (10 más)')} ${ic('go')}</button>`:''}
       ${failed.length&&ss.mode!=='learn'?`<button class="btn block" data-act="learnfailed">${T('Learn these','Aprender estos')}</button>`:''}
       <button class="btn ${ss.mode==='daily'||ss.mode==='extra'?'':'primary big'} block" ${again}>${ss.mode==='learn'?T('Learn more','Aprender más'):T('Another session','Otra sesión')}</button>
+      ${rid?`<button class="btn block" data-route="${rid}">${T('Back to the route','Volver a la ruta')}</button>`:''}
       <button class="btn ghost block" data-act="finish">${T('Back to home','Volver al inicio')}</button></div></div>`;
 }
 
 /* ---------- Unit rows, libraries and unit cards ---------- */
 function stageChip(uid){ const s=stageOf(uid); return `<span class="stg s${s}">${esc(lab({ x:STAGE_L[s] }, 'x'))}</span>`; }
-function unitRow(u){ const m=meanHTML(meaningOf(u), 90);
-  return `<li><button class="rowbtn" data-unit="${esc(u.uid)}"><span class="rt"><b>${esc(unitName(u))}</b>${m?`<span class="small muted">${m}</span>`:''}</span>${(S.learnList||[]).includes(u.uid)?'<span class="star" aria-label="★">★</span>':''}${stageChip(u.uid)}</button></li>`; }
+// o.save: a bookmark beside the row; o.pick: a Set, and the row becomes a checkbox (selecting several)
+function unitRow(u, o={}){ const m=meanHTML(meaningOf(u), 90), txt=`<span class="rt"><b>${esc(unitName(u))}</b>${m?`<span class="small muted">${m}</span>`:''}</span>`;
+  if(o.pick) return `<li><button class="rowbtn" role="checkbox" aria-checked="${o.pick.has(u.uid)}" data-lpick="${esc(u.uid)}"><span class="cbx" aria-hidden="true">${ic('check','sm')}</span>${txt}${stageChip(u.uid)}</button></li>`;
+  const row=`<button class="rowbtn" data-unit="${esc(u.uid)}">${txt}${!o.save&&inRoutes(u.uid)?`<span class="star" aria-label="${T('In a route','En una ruta')}">★</span>`:''}${stageChip(u.uid)}</button>`;
+  return o.save ? `<li class="urow">${row}${saveBtn(u.uid, unitName(u), 'sm')}</li>` : `<li>${row}</li>`; }
 function libStages(lib){ const c=[0,0,0,0,0,0]; for(const u of BYLIB[lib]||[]){ const s=S.units[u.uid]; c[s&&s.seen?s.stage:0]++; } return c; }
 function stageSummary(lib){ const c=libStages(lib), known=c[3]+c[4]+c[5], learning=c[1]+c[2];
   return T(`${known} Known · ${learning} Learning · ${c[0]} New`,`${known} conocidas · ${learning} aprendiendo · ${c[0]} nuevas`); }
@@ -352,12 +362,12 @@ const FN_L = { add:['Adding','Añadir'], contrast:['Contrast','Contraste'], reas
   sequence:['Sequence','Secuencia'], opinion:['Opinion','Opinión'], conclusion:['Conclusion','Conclusión'], condition:['Condition','Condición'], time:['Time','Tiempo'] };
 const COLT_L = { daily:['Daily life','Día a día'], study:['Studies','Estudios'], work:['Work','Trabajo'], social:['Social life','Vida social'], health:['Health','Salud'], money:['Money','Dinero'],
   travel:['Travel','Viajes'], communication:['Communication','Comunicación'], freetime:['Free time','Tiempo libre'], feelings:['Feelings','Emociones'] };
-let libRef='pv', libFilter='', libQuery='', libSort='az', unitRef=null, unitBack='library';
+let libRef='pv', libFilter='', libQuery='', libSort='az', unitRef=null, unitBack='library', libSel=null;
 function libListUnits(){
   const q=lc(libQuery), [fk,fv]=libFilter.split(/:(.*)/s);
   let arr=(BYLIB[libRef]||[]).filter(u=>{
     if(q && ![unitName(u), u.es, u.en, ...(Array.isArray(u.ex)?u.ex:Object.values(u.ex||{}))].join(' ').toLowerCase().includes(q)) return false;
-    if(fk==='state'){ const s=S.units[u.uid], st=s&&s.seen?s.stage:0; return fv==='list' ? (S.learnList||[]).includes(u.uid) : String(st)===fv; }
+    if(fk==='state'){ const s=S.units[u.uid], st=s&&s.seen?s.stage:0; return fv==='list' ? inRoutes(u.uid) : String(st)===fv; }
     if(fk==='theme') return u.theme===fv;
     if(fk==='level') return u.level===fv;
     return true; });
@@ -369,7 +379,7 @@ function libListUnits(){
   return arr;
 }
 function libListHTML(){ const arr=libListUnits(); if(!arr.length) return `<p class="muted">${T('Nothing matches that filter.','Nada con ese filtro.')}</p>`;
-  return `<ul class="list">${arr.slice(0,250).map(unitRow).join('')}</ul>`; }
+  return `<ul class="list">${arr.slice(0,250).map(u=>unitRow(u, libSel ? { pick:libSel } : { save:true })).join('')}</ul>`; }
 function renderLibrary(){
   const lib=libRef, tk=THEME_KEY[lib], themes=tk?[...new Set(BYLIB[lib].map(u=>u.theme))]:[];
   const chip=(v,l)=>`<button data-lfilter="${esc(v)}" aria-pressed="${libFilter===v}">${esc(l)}</button>`;
@@ -378,10 +388,12 @@ function renderLibrary(){
     ${stageBar(libStages(lib))}<p class="small muted" style="margin:6px 0 12px">${esc(stageSummary(lib))}</p>
     <div class="grid3"><button class="btn primary" data-learnlib="${lib}">${T('Learn new','Aprender')}</button><button class="btn" data-flashlib="${lib}">${T('Flashcards','Tarjetas')}</button><button class="btn" data-libtest="${lib}">Test</button></div>
     <input class="field" id="libq" placeholder="${T('Search (English or Spanish)','Buscar (inglés o español)')}" value="${esc(libQuery)}" autocomplete="off" autocapitalize="off" style="margin-top:12px">
-    <div class="chips">${chip('',T('All','Todos'))}${[0,1,2,3,4,5].map(s=>chip('state:'+s, lab({ x:STAGE_L[s] }, 'x'))).join('')}${chip('state:list',T('My list','Mi lista'))}</div>
+    <div class="chips">${chip('',T('All','Todos'))}${[0,1,2,3,4,5].map(s=>chip('state:'+s, lab({ x:STAGE_L[s] }, 'x'))).join('')}${chip('state:list',T('In my routes','En mis rutas'))}</div>
     ${themes.length>1||levels.length>1?`<div class="chips">${levels.length>1?levels.map(l=>chip('level:'+l, l)).join(''):''}${themes.length>1?themes.map(t=>chip('theme:'+t, themeLabel(lib,t))).join(''):''}</div>`:''}
-    <div class="seg" role="group" style="margin:4px 0 10px">${[['az','A–Z'],['failed',T('Most failed','Más falladas')],['seen',T('Least seen','Menos vistas')],['new',T('New first','Nuevas')]].map(([v,l])=>`<button data-lsort="${v}" aria-pressed="${libSort===v}">${l}</button>`).join('')}</div>
-    <div id="liblist">${libListHTML()}</div>`;
+    <div class="row spread" style="margin:4px 0 10px;align-items:flex-start"><div class="seg" role="group">${[['az','A–Z'],['failed',T('Most failed','Más falladas')],['seen',T('Least seen','Menos vistas')],['new',T('New first','Nuevas')]].map(([v,l])=>`<button data-lsort="${v}" aria-pressed="${libSort===v}">${l}</button>`).join('')}</div>
+      <button class="btn ghost" data-act="libsel" aria-pressed="${!!libSel}">${libSel?T('Cancel','Cancelar'):T('Select','Seleccionar')}</button></div>
+    <div id="liblist">${libListHTML()}</div>
+    ${libSel?`<div class="go"><button class="btn primary block" data-act="libselsave" ${libSel.size?'':'disabled'}>${ic('bookmark','sm')} ${T(`Save selected to… (${libSel.size})`,`Guardar seleccionados en… (${libSel.size})`)}</button></div>`:''}`;
 }
 function unitData(u){
   const s=S.units[u.uid], atts=S.attempts.filter(a=>a.u===u.uid || (!a.u && uidOfItem(a.id)===u.uid));
@@ -405,13 +417,14 @@ function renderUnit(){
   if(u.lib==='irr') extra=`<table class="cd" style="margin-top:12px"><tbody><tr><td class="k">${T('Infinitive','Infinitivo')}</td><td><b>${esc(u.term)}</b></td></tr><tr><td class="k">${T('Past simple','Pasado')}</td><td>${esc(u.p.join(' / '))}</td></tr><tr><td class="k">${T('Past participle','Participio')}</td><td>${esc(u.pp.join(' / '))}</td></tr></tbody></table>`;
   if(u.lib==='wf') extra=`<table class="cd" style="margin-top:12px"><tbody>${Object.entries(u.forms).map(([k,f])=>`<tr><td class="k">${esc(k)}</td><td><b>${esc(f)}</b>${u.alts[k]?` / ${esc(u.alts[k].join(' / '))}`:''}</td></tr>`).join('')}</tbody></table>`;
   if(u.lib==='tr') extra=`<div class="panel" style="margin-top:12px"><p>${esc(u.from)}</p><div class="base">${esc(u.key)}</div><p style="margin-top:10px">${rich(u.to, u.answers[0], 'ok')}</p><p class="small muted">${esc(u.answers.join(' / '))}</p></div>`;
-  return `${backBar(unitName(u), unitBack)}
+  const inR=routesWith(u.uid).length;
+  return `${backBar(unitName(u), unitBack, saveBtn(u.uid, unitName(u)))}
     <div class="pv">${cardBody(c, u)}${chips.length?`<div class="row wrap" style="margin-top:10px">${chips.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>`:''}</div>
     ${extra}
     ${conf.length?`<h2>${T("Don't confuse with",'No confundir con')}</h2><ul class="list">${conf.map(unitRow).join('')}</ul>`:''}
     ${unitData(u)}
     <div class="actions" style="margin-top:16px"><button class="btn primary block" data-practise="${esc(u.uid)}">${T('Practise this one','Practicar este')} ${ic('go')}</button>
-      <button class="btn block" data-learnlist="${esc(u.uid)}">${(S.learnList||[]).includes(u.uid)?T('Remove from my learning list','Quitar de mi lista de aprendizaje'):T('Add to my learning list','Añadir a mi lista de aprendizaje')}</button></div>`;
+      <button class="btn block" data-save="${esc(u.uid)}">${ic(inR?'bookmarkf':'bookmark','sm')} ${inR?T(`In ${inR} ${inR===1?'route':'routes'}: change`,`En ${inR} ${inR===1?'ruta':'rutas'}: cambiar`):T('Save to a route','Guardar en una ruta')}</button></div>`;
 }
 
 /* ---------- Learn new ---------- */
@@ -427,7 +440,7 @@ function renderLearn(){
     ${themes.length>1?`<div class="chips" style="flex-wrap:wrap">${['',...themes].map(t=>`<button data-lrntheme="${esc(t)}" aria-pressed="${learnCfg.theme===t}">${esc(t?themeLabel(lib,t):T('Any theme','Cualquier tema'))}</button>`).join('')}</div>`:''}
     <h3 class="sub">${T('How many','Cuántos')}</h3>
     <div class="seg" role="group">${[3,5,8].map(n=>`<button data-lrnn="${n}" aria-pressed="${learnCfg.n===n}">${n}</button>`).join('')}</div>
-    ${(S.learnList||[]).length?`<p class="small muted" style="margin-top:10px">${T(`Your learning list (${S.learnList.length}) goes first.`,`Tu lista de aprendizaje (${S.learnList.length}) va primero.`)}</p>`:''}
+    ${routedUids().size?`<p class="small muted" style="margin-top:10px">${T('What you saved in your routes goes first.','Lo que has guardado en tus rutas va primero.')}</p>`:''}
     <button class="btn primary block big" data-act="learnstart" style="margin-top:16px">${T('Start','Empezar')} ${ic('go')}</button>`;
 }
 
@@ -483,6 +496,7 @@ function renderHome(){
   return `${header()}
     <section class="today"><h1>${title}</h1><p class="lead">${lead}</p>${course}${table}<div class="go">${go}</div>${learnMore}</section>
     ${lessonHTML()}
+    ${homeRoutesHTML()}
     ${unread?`<div class="panel note"><h3>${ic('mail')}${T('Note from Claude','Nota de Claude')}</h3><p style="white-space:pre-wrap">${esc(unread.text)}</p><button class="btn ghost" data-act="readmsg">${T('Mark as read','Marcar como leída')}</button></div>`:''}
     ${run?`<div class="panel note run"><h3>${ic('clock')}${esc(run.title)}: ${T('in progress','a medias')}</h3><button class="btn block" data-go="run">${T('Continue','Continuar')}</button></div>`:''}
     ${wm?`<div class="panel note run"><h3>${ic('clock')}${T('Writing mock exam in progress','Simulacro de Writing en curso')}</h3><button class="btn block" data-go="wmock">${T('Continue','Continuar')}</button></div>`:''}
@@ -510,7 +524,7 @@ function counts(){
 /* ---------- Study tab: libraries block ---------- */
 function librariesHTML(){
   return `<h2>${T('Libraries','Librerías')}</h2>
-    <div class="grid2" style="margin-bottom:10px"><button class="btn primary" data-go="learn">${T('Learn new','Aprender nuevos')}</button><button class="btn" data-act="learnlist">${T('My learning list','Mi lista')} (${(S.learnList||[]).length})</button></div>
+    <div class="grid2" style="margin-bottom:10px"><button class="btn primary" data-go="learn">${T('Learn new','Aprender nuevos')}</button><button class="btn" data-go="routes">${ic('bookmark','sm')} ${T('My routes','Mis rutas')} (${S.routes.length})</button></div>
     <ul class="list">${STUDY_LIBS.map(l=>`<li><button class="rowbtn" data-lib="${l}"><i class="sw ${l==='irr'||l==='pv'||l==='col'?'open':l==='cn'?'contour':'thicket'}"></i><span class="rt">${esc(libName(l))} (${BYLIB[l].length})<span class="small muted">${esc(stageSummary(l))}</span></span>${ic('chev','sm')}</button></li>`).join('')}</ul>`;
 }
 
@@ -523,7 +537,7 @@ function libTestHTML(){
     <div class="panel stack">
       <div class="chips" style="flex-wrap:wrap;padding-top:0">${['pv','cn','col','irr','wf','tr'].map(l=>`<button data-lt="lib" data-val="${l}" aria-pressed="${c.lib===l}">${esc(libName(l))}</button>`).join('')}</div>
       <div><b>${T('Length','Longitud')}</b></div>${seg('n',[10,20,30],['10','20','30'])}
-      <div><b>${T('Which ones','Cuáles')}</b></div>${seg('scope',['all','list','learning','weak','theme'],[T('All','Todos'),T('My list','Mi lista'),T('Learning','Aprendiendo'),T('Most failed','Más fallados'),T('A theme','Un tema')])}
+      <div><b>${T('Which ones','Cuáles')}</b></div>${seg('scope',['all','list','learning','weak','theme'],[T('All','Todos'),T('In my routes','En mis rutas'),T('Learning','Aprendiendo'),T('Most failed','Más fallados'),T('A theme','Un tema')])}
       ${c.scope==='theme'&&themes.length?`<div class="chips" style="flex-wrap:wrap">${themes.map(t=>`<button data-lt="theme" data-val="${esc(t)}" aria-pressed="${c.theme===t}">${esc(themeLabel(c.lib,t))}</button>`).join('')}</div>`:''}
       <div><b>${T('Mode','Modo')}</b></div>${seg('mode',['meaning','usage','mixed'],[T('Meaning','Significado'),T('Usage','Uso'),T('Mixed','Mixto')])}
       <button class="btn primary block" data-act="libtest">${T('Start test','Empezar test')} ${ic('go')}</button>

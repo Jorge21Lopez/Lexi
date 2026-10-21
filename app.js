@@ -1,6 +1,6 @@
 'use strict';
 /* Lexi: English for PET (B1) and B2 First. Everything is stored locally on the device. */
-const APP_VERSION = '7.0.0';
+const APP_VERSION = '7.1.0';
 const KEY = 'lexi:v1';
 const DAY = 864e5;
 
@@ -23,10 +23,11 @@ const PARTS = { reading:6, listening:4, uoe:4 };
 
 /* ---------- State ---------- */
 function defaultState(){
-  return { v:3, createdAt:Date.now(), srs:{}, units:{}, attempts:[], writings:[], packs:[], exports:[], lastExportAt:0,
+  return { v:4, createdAt:Date.now(), srs:{}, units:{}, attempts:[], writings:[], packs:[], exports:[], lastExportAt:0,
     daily:{}, session:null, messages:[], settings:{ sessionSize:10, newPerDay:12, dailySize:25, newItems:10, mixPreset:'balanced', mixShares:null, lang:'en', theme:'auto', grammarDaily:true, grammarAll:false,
-      mix:{ n:20, level:'all', focus:'balanced', timer:false }, libtest:{ lib:'pv', n:10, scope:'all', mode:'mixed', theme:'' } },
-    tests:[], run:null, wmock:null, read:{}, irr:{}, speak:{}, phr:{}, rawNotes:[], challenges:{ daily:{}, best:{}, hist:[] }, lesson:null, learnList:[], libHist:{}, prod:[] };
+      mix:{ n:20, level:'all', focus:'balanced', timer:false }, libtest:{ lib:'pv', n:10, scope:'all', mode:'mixed', theme:'' },
+      route:{ n:20 }, routetest:{ n:10, scope:'all', mode:'mixed', timer:false } },
+    tests:[], run:null, wmock:null, read:{}, irr:{}, speak:{}, phr:{}, rawNotes:[], challenges:{ daily:{}, best:{}, hist:[] }, lesson:null, libHist:{}, prod:[], routes:[], routeLast:null };
 }
 // Older states load as they are; fields added later get their defaults, and v2 states (Lexi 6 and before) are migrated to units
 function load(){
@@ -37,10 +38,18 @@ function load(){
 function upgrade(s){
   const d = defaultState(), from = s.v || 1;
   if(s.session && !s.session.mode) s.session.mode='daily';
-  const st = Object.assign(d, s, { settings:Object.assign(d.settings, s.settings||{}, { mix:Object.assign(d.settings.mix, s.settings?.mix||{}), libtest:Object.assign(d.settings.libtest, s.settings?.libtest||{}) }),
+  const st = Object.assign(d, s, { settings:Object.assign(d.settings, s.settings||{}, { mix:Object.assign(d.settings.mix, s.settings?.mix||{}), libtest:Object.assign(d.settings.libtest, s.settings?.libtest||{}),
+      route:Object.assign(d.settings.route, s.settings?.route||{}), routetest:Object.assign(d.settings.routetest, s.settings?.routetest||{}) }),
     challenges:Object.assign(d.challenges, s.challenges||{}) });
   if(from<3) migrateUnits(st, s.settings||{});
+  if(from<4) migrateRoutes(st);
   return st;
+}
+// Schema v3 → v4: the learning list becomes the route "My learning list", in the same order. S.learnList stays as it was.
+function migrateRoutes(st){
+  const ll=[...new Set((st.learnList||[]).filter(x=>typeof x==='string'))], now=Date.now();
+  if(ll.length && !st.routes.some(r=>r.list)) st.routes.push({ id:'r_list', name:'My learning list', icon:'⭐', list:true, items:ll.map(ref=>({ ref, addedAt:now })), pinned:false, source:'user', createdAt:now, updatedAt:now, sessions:0, lastActivity:0 });
+  st.v=4;
 }
 // Schema v2 → v3: the history of each item becomes the learning state of its unit. S.srs, S.phr, S.irr and the attempts stay as they were.
 function migrateUnits(st, oldSettings){
@@ -131,7 +140,7 @@ const SP_EN = window.LEXI_EN?.speaking||[];
 rebuild();
 upgradeSession();
 
-let view='home', current=null, editing=null, exportCache=null, pageRef=null, resultId=null, sp=null, pendingImport=null, noteId=null, openPack=null;
+let view='home', current=null, editing=null, exportCache=null, pageRef=null, resultId=null, sp=null, pendingImport=null, noteId=null, noteBack='study', openPack=null;
 
 /* ---------- Utilities ---------- */
 const $ = s => document.querySelector(s);
@@ -143,7 +152,9 @@ const ICONS = {
   speaker:'<path d="M4 9.5v5h3.5L12 18V6L7.5 9.5z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>',
   go:'<path d="M5 12h13M13 6l6 6-6 6"/>', mail:'<path d="M3.5 6h17v12h-17z"/><path d="M3.5 7l8.5 6 8.5-6"/>',
   book:'<path d="M4 19V5a2 2 0 0 1 2-2h14v14H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14"/><path d="M8 7h8"/>', pen:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>', chart:'<path d="M4 20h16"/><path d="M7 16v-5M12 16V7M17 16v-8"/>',
-  flag:'<path d="M5 21V3"/><path d="M5 4h14v10H5z"/><path d="M5 4l14 10"/>', clock:'<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>'
+  flag:'<path d="M5 21V3"/><path d="M5 4h14v10H5z"/><path d="M5 4l14 10"/>', clock:'<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
+  bookmark:'<path d="M7 3.5h10v17l-5-4-5 4z"/>', bookmarkf:'<path d="M7 3.5h10v17l-5-4-5 4z" fill="currentColor"/>', plus:'<path d="M12 5v14M5 12h14"/>',
+  up:'<path d="M12 19V5M6 11l6-6 6 6"/>', down:'<path d="M12 5v14M6 13l6 6 6-6"/>', trash:'<path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/>'
 };
 const ic = (n, cls='') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
 const BRAND = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 21.5 19.5h-19z" fill="none" stroke="var(--course)" stroke-width="2.6" stroke-linejoin="round"/></svg>';
@@ -199,10 +210,13 @@ function lcsMatch(a,b){
   while(i<m&&j<n){ if(a[i]===b[j]){hit.add(i);i++;j++;} else if(dp[i+1][j]>=dp[i][j+1]) i++; else j++; }
   return hit;
 }
-function toast(msg){
+// undo: optional function behind an "Undo" button (the toast then stays 6 seconds)
+function toast(msg, undo){
   document.querySelectorAll('.toast').forEach(t=>t.remove());
   const t=document.createElement('div'); t.className='toast'; t.setAttribute('role','status'); t.textContent=msg;
-  document.body.appendChild(t); setTimeout(()=>t.remove(), 3000);
+  undoFn=undo||null;
+  if(undo){ const b=document.createElement('button'); b.textContent=T('Undo','Deshacer'); b.dataset.undo=''; t.appendChild(b); }
+  document.body.appendChild(t); setTimeout(()=>t.remove(), undo?6000:3000);
 }
 function fmtText(s){ return String(s).split(/\n{2,}/).map(p=>`<p>${esc(p).replace(/\n/g,'<br>')}</p>`).join(''); }
 function wc(t){ return (String(t).trim().match(/\S+/g)||[]).length; }
@@ -256,24 +270,27 @@ function correctText(item){ return item.type==='mcq' ? item.answer : item.type==
 /* ---------- Rendering ---------- */
 const FOCUS = ['session','run','wmock'];
 function go(v){
-  const swap=()=>{ view=v; stopSpeech(); window.scrollTo(0,0); render(); };
+  const swap=()=>{ view=v; sheet=null; newForm=null; stopSpeech(); window.scrollTo(0,0); render(); };
   if(document.startViewTransition && !reduced() && v!==view) document.startViewTransition(swap); else swap();
 }
-const TAB_OF = { item:'home', mistakes:'home', templates:'study', note:'study', home:'home', session:'home', progress:'home', study:'study', page:'study', speak:'study', library:'study', unit:'study', learn:'study', tests:'tests', run:'tests', result:'tests', writing:'writing', write:'writing', wmock:'writing', data:'data' };
+const TAB_OF = { item:'home', mistakes:'home', templates:'study', note:'study', home:'home', session:'home', progress:'home', study:'study', page:'study', speak:'study', library:'study', unit:'study', learn:'study',
+  routes:'study', route:'study', routeadd:'study', routetest:'study', routestats:'study', tests:'tests', run:'tests', result:'tests', writing:'writing', write:'writing', wmock:'writing', data:'data' };
 function render(){
   document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-current', b.dataset.go===TAB_OF[view] ? 'page' : 'false'));
   $('#tabs').classList.toggle('hidden', FOCUS.includes(view));
   $('#app').classList.toggle('focus', FOCUS.includes(view));
   const fn={ home:renderHome, session:renderSession, progress:renderProgress, study:renderStudy, page:renderPage, speak:renderSpeak,
-    tests:renderTests, run:renderRun, templates:renderTemplates, note:renderNote, result:renderResult, writing:renderWriting, write:renderWrite, wmock:renderWMock, data:renderData, item:renderItem, mistakes:renderMistakes, library:renderLibrary, unit:renderUnit, learn:renderLearn }[view] || renderHome;
-  $('#app').innerHTML = fn();
+    tests:renderTests, run:renderRun, templates:renderTemplates, note:renderNote, result:renderResult, writing:renderWriting, write:renderWrite, wmock:renderWMock, data:renderData, item:renderItem, mistakes:renderMistakes, library:renderLibrary, unit:renderUnit, learn:renderLearn,
+    routes:renderRoutes, route:renderRoute, routeadd:renderRouteAdd, routetest:renderRouteTest, routestats:renderRouteStats }[view] || renderHome;
+  // The "Save to…" sheet sits on top of whatever screen opened it
+  $('#app').innerHTML = fn() + (sheet ? sheetHTML() : '');
   afterRender();
 }
 function header(){
   return `<div class="top"><div class="brand">${BRAND}Lexi</div><div class="row"><span class="date">${esc(new Date().toLocaleDateString(LOCALE(),{weekday:'short', day:'numeric', month:'short'}))}</span>
     <button class="langbtn" data-act="togglelang" aria-label="${T('Change language','Cambiar idioma')}">${LANG==='en'?'EN':'ES'}</button></div></div>`;
 }
-function backBar(title, to){ return `<div class="sess-top"><button class="icon-btn" data-go="${to}" aria-label="${T('Back','Volver')}">${ic('back')}</button><b style="flex:1">${esc(title)}</b></div>`; }
+function backBar(title, to, extra=''){ return `<div class="sess-top"><button class="icon-btn" data-go="${to}" aria-label="${T('Back','Volver')}">${ic('back')}</button><b style="flex:1">${esc(title)}</b>${extra}</div>`; }
 
 /* ---------- The course: today's plan drawn as controls on a purple line ---------- */
 // Legs animate from data-from to data-to after each render (see afterRender)
@@ -330,11 +347,12 @@ function renderStudy(){
     ${sec('other').length?`<h2>${T('More','Más')}</h2><ul class="list">${sec('other').map(li).join('')}</ul>`:''}`;
 }
 function renderPage(){
-  const [type,id]=pageRef||[];
+  const [type,id]=pageRef||[], back=pageRoute && routeById(pageRoute) ? 'route' : 'study';
+  if(pageRoute) routeRef=pageRoute;
   if(type==='guide'){ const g=PAGES.get(id); if(!g) return renderStudy(); if(!S.read[id]){ S.read[id]=Date.now(); save(); }
-    return `${backBar(L(g,'title'),'study')}<article class="page">${L(g,'html')}</article>`; }
+    return `${backBar(L(g,'title'),back,saveBtn('page:'+id, L(g,'title')))}<article class="page">${L(g,'html')}</article>${pageRouteHTML()}`; }
   if(type==='grammar'){ const g=GRAMMAR.get(id); if(!g) return renderStudy(); if(!S.read[id]){ S.read[id]=Date.now(); save(); }
-    return `${backBar(L(g,'title'),'study')}<article class="page">${L(g,'html')}</article>
+    return `${backBar(L(g,'title'),back,saveBtn('grammar:'+id, L(g,'title')))}<article class="page">${L(g,'html')}</article>${pageRouteHTML()}
       <div class="panel"><div class="row spread"><b>${T('Test on this topic','Test de este tema')}</b>${badge(bestOf('topic',id))}</div><p class="small muted">${pl(g.test.length,'question','questions','pregunta','preguntas').replace(/^/,g.test.length+' ')}.</p>
       <button class="btn primary block" data-topic="${esc(id)}">${T('Take the test','Hacer el test')}</button></div>`; }
   // The v6 pages for irregular and phrasal verbs are now libraries
@@ -467,7 +485,7 @@ function newNote(tplId){
 }
 function renderNote(){
   const n=S.rawNotes.find(x=>x.id===noteId); if(!n) return renderStudy();
-  return `${backBar(T('Note','Apunte'),'study')}
+  return `${backBar(T('Note','Apunte'),noteBack,saveBtn('note:'+n.id, n.title||T('this note','este apunte')))}
     <input class="field" id="ntitle" placeholder="${T("Title (e.g. Conditionals, Tuesday's class)",'Título (p. ej. Condicionales, clase del martes)')}" value="${esc(n.title)}" style="margin-bottom:10px">
     <textarea class="field" data-note="${esc(n.id)}" style="min-height:380px;font-size:15px" spellcheck="false">${esc(n.text)}</textarea>
     <div class="row spread" style="margin:8px 0 14px"><span class="small muted">${n.status==='ready'?T('Ready: it will go in your next export.','Listo: irá en tu próxima exportación.'):T("Draft: it won't be sent until you mark it as ready.",'Borrador: no se envía hasta que lo marques como listo.')}</span><span class="small muted" data-saved></span></div>
@@ -660,17 +678,20 @@ function renderRun(){
 function renderResult(){
   const r=S.tests.find(x=>x.id===resultId); if(!r) return renderTests();
   const pct=Math.round(r.score/r.max*100), bad=r.detail.filter(d=>d.r!=='ok');
-  const redo = r.kind==='topic' ? `data-topic="${esc(r.ref)}"` : r.kind==='mock' ? `data-paper="${esc(r.ref)}"` : r.kind==='part' ? `data-part="${esc(r.ref)}"` : r.kind==='irregular' ? 'data-libtest="irr"' : r.kind==='library' ? `data-libtest="${esc(r.ref)}"` : r.kind==='mixed' ? (r.ref&&r.ref!=='mixed'?`data-focus="${esc(r.ref)}"`:'data-act="mixed"') : 'data-libtest="pv"';
+  const route=r.kind==='route' && routeById(r.ref);
+  const redo = route ? `data-routego="test" data-rid="${esc(r.ref)}"` : r.kind==='topic' ? `data-topic="${esc(r.ref)}"` : r.kind==='mock' ? `data-paper="${esc(r.ref)}"` : r.kind==='part' ? `data-part="${esc(r.ref)}"` : r.kind==='irregular' ? 'data-libtest="irr"' : r.kind==='library' ? `data-libtest="${esc(r.ref)}"` : r.kind==='mixed' ? (r.ref&&r.ref!=='mixed'?`data-focus="${esc(r.ref)}"`:'data-act="mixed"') : 'data-libtest="pv"';
   const failedUnits=[...new Set(bad.map(d=>d.uid).filter(u=>u && UNITS.has(u)))];
-  return `${backBar(T('Result','Resultado'),'tests')}
+  if(route) routeRef=r.ref;
+  return `${backBar(T('Result','Resultado'),route?'routestats':'tests')}
     <h1>${esc(r.title)}</h1>
     <div class="score"><b>${r.score}/${r.max}</b><span>${pct}%</span></div>
     <p class="muted small">${fmtDate(r.at)} · ${mmss(r.durationSec*1000)} min</p>
+    ${route?routeCompareHTML(r):''}
     ${r.scale?`<div class="panel note"><h3>≈ ${r.scale} ${T('on the Cambridge English Scale','en la Cambridge English Scale')}</h3><p class="small" style="margin:0">${scaleLabel(r.scale)}. ${T('Approximate estimate: the official conversion varies slightly between exam sessions.','Estimación aproximada: la conversión oficial varía un poco en cada convocatoria.')}</p></div>`:''}
     ${r.parts.length>1?`<h2>${T('By part','Por partes')}</h2><table class="cd"><tbody>${r.parts.map((p,i)=>`<tr><th>${p.part||i+1}</th><td>${esc(p.title||'Part '+p.part)}<div class="meter"><div style="width:${p.score/p.max*100}%"></div></div></td><td class="v">${p.score}/${p.max}</td></tr>`).join('')}</tbody></table>`:''}
     ${breakdownHTML(r.breakdown)}
     ${bad.length?`<h2>${T('Your mistakes','Tus fallos')}</h2><table class="cd"><tbody>${bad.map(d=>`<tr ${d.uid&&UNITS.has(d.uid)&&!/^(voc|gr):/.test(d.uid)?`data-unit="${esc(d.uid)}"`:d.id&&ITEMS.has(d.id)?`data-item="${esc(d.id)}"`:''}><th>${d.n}</th><td>${d.part&&r.parts.length>1?`<div class="small muted">Part ${d.part}</div>`:''}${d.stem?`<div class="small">${esc(d.stem)}</div>`:''}
-      <div class="ans-row bad-t">${ic('x','sm')}<span class="${d.given?'struck':''}">${esc(d.given)||T('(blank)','(en blanco)')}</span></div><div class="ans-row ok-t">${ic('check','sm')}<b>${esc(d.correct)}</b></div></td></tr>`).join('')}</tbody></table>`:`<p class="muted">${T('A clean run: every answer right.','Recorrido limpio: todo correcto.')}</p>`}
+      <div class="ans-row bad-t">${ic('x','sm')}<span class="${d.given?'struck':''}">${esc(d.given)||T('(blank)','(en blanco)')}</span></div><div class="ans-row ok-t">${ic('check','sm')}<b>${esc(d.correct)}</b></div></td>${d.uid&&UNITS.has(d.uid)?`<td class="sv">${saveBtn(d.uid, unitName(UNITS.get(d.uid)), 'sm')}</td>`:''}</tr>`).join('')}</tbody></table>`:`<p class="muted">${T('A clean run: every answer right.','Recorrido limpio: todo correcto.')}</p>`}
     <div class="actions" style="margin-top:18px">${failedUnits.length?`<button class="btn primary block" data-learnthese="${esc(failedUnits.join('|'))}">${T('Learn these','Aprender estos')}</button>`:''}<button class="btn ${failedUnits.length?'':'primary'} block" ${redo}>${T('Try again','Repetir')}</button><button class="btn block" data-go="tests">${T('Back to tests','Volver a tests')}</button></div>`;
 }
 
@@ -806,7 +827,8 @@ function summaryOf(atts, tests, since=0){
     accuracyBySkill:accByKey(atts, skillOfAttempt),
     units:Object.fromEntries(Object.keys(LIB_L).map(l=>{ const c=libStages(l); return [l, { total:BYLIB[l].length, new:c[0], learning:c[1], familiar:c[2], known:c[3], strong:c[4], mastered:c[5] }]; })),
     stuck:stuckUnits().map(e=>({ uid:e.uid, term:unitName(UNITS.get(e.uid)), fails:e.n, recent:e.last.slice(-3).map(x=>({ at:iso(x.at), answer:x.given, format:x.format })) })),
-    learnList:S.learnList||[],
+    learnList:(listRoute(false)?.items||[]).map(x=>x.ref),
+    routes:routesSummary(since),
     challenges:{ best:S.challenges.best, dailyStreak:dailyStreak(), history:S.challenges.hist.filter(h=>h.at>since).map(h=>({ challenge:h.ch, at:iso(h.at), score:h.score, max:h.max, durationSec:h.sec, mistakes:h.mistakes||[] })) },
     leeches:leeches(),
     topErrorsAllTime:Object.entries(S.units).filter(([,s])=>s.lapses>0).sort((a,b)=>b[1].lapses-a[1].lapses).slice(0,25).map(([uid,s])=>({ id:legacyId(uid), uid, word:UNITS.get(uid)?unitName(UNITS.get(uid)):null, lapses:s.lapses, intervalDays:s.interval, stage:s.stage })) };
@@ -825,20 +847,22 @@ function buildExport(full){
   const srs={}; for(const id of (full?Object.keys(S.srs):touched)){ const s=S.srs[id]; if(s) srs[id]={ reps:s.r, lapses:s.l, intervalDays:s.i, ease:+s.e.toFixed(2), due:iso(s.due) }; }
   const writings=S.writings.filter(w=>w.updatedAt>since && w.text.trim()).map(w=>{ const p=ITEMS.get(w.promptId);
     return { id:w.id, promptId:w.promptId, form:p?.form||null, level:p?.level||null, title:p?(p.title_en||p.title):w.title, task:p?p.task:null, targetWords:p?p.words:null, status:w.status, timedMock:!!w.mock, minutes:w.minutes||null, words:wc(w.text), text:w.text, updatedAt:iso(w.updatedAt), alreadyCorrected:!!w.feedback }; });
-  return { format:'lexi-export', version:4, app:APP_VERSION, kind:full?'full':'delta', exportedAt:iso(now), period:{ from:since?iso(since):null, to:iso(now) },
+  return { format:'lexi-export', version:5, app:APP_VERSION, kind:full?'full':'delta', exportedAt:iso(now), period:{ from:since?iso(since):null, to:iso(now) },
     profile:{ currentLevel:'B1', targetExam:'Cambridge B1 Preliminary (PET)', nextGoal:'B2 First', settings:S.settings, appLanguage:LANG },
     installed:{ packs:S.packs.map(p=>({ id:p.id, name:p.name, active:!p.off })), tasks:[...TASKS.keys()], grammar:[...GRAMMAR.keys()], papers:[...PAPERS.keys()], pages:[...PAGES.keys()], phrasal:[...PHRASAL.keys()],
       connectors:BYLIB.cn.map(u=>u.term), collocations:BYLIB.col.map(u=>u.term), families:BYLIB.wf.map(u=>u.term), transformations:BYLIB.tr.map(u=>u.uid.slice(3)) },
     summary:summaryOf(atts, tests, since),
-    attempts:atts.map(a=>Object.assign({ id:a.id, uid:unitOfAttempt(a), at:iso(a.t), result:a.r, ms:a.ms, answer:a.a, format:inferFormat(a), skill:skillOfAttempt(a), mode:a.m||'daily', hintShown:!!a.h }, a.q?{ question:a.q, correct:a.c }:{})), items, srs, units:unitInfo, unitState,
+    attempts:atts.map(a=>Object.assign({ id:a.id, uid:unitOfAttempt(a), at:iso(a.t), result:a.r, ms:a.ms, answer:a.a, format:inferFormat(a), skill:skillOfAttempt(a), mode:a.m||'daily', hintShown:!!a.h }, a.q?{ question:a.q, correct:a.c }:{}, a.rid?{ routeId:a.rid, routeMode:a.rm }:{})), items, srs, units:unitInfo, unitState,
     productions:(S.prod||[]).filter(p=>p.at>since).map(p=>({ uid:p.uid, term:UNITS.get(p.uid)?unitName(UNITS.get(p.uid)):p.uid, at:iso(p.at), prompt:p.prompt, text:p.text, selfAssessed:p.self })),
-    tests:tests.map(t=>Object.assign({ id:t.id, kind:t.kind, ref:t.ref, title:t.title, mode:t.mode, at:iso(t.at), durationSec:t.durationSec, score:t.score, max:t.max, scale:t.scale||null, parts:t.parts, mistakes:t.detail.filter(d=>d.r!=='ok') }, t.breakdown?{ breakdown:t.breakdown, options:t.opts||null }:{})),
+    routes:routesExport(since), routeTests:routeTestsExport(tests),
+    // Route tests go in routeTests, with all their mistakes
+    tests:tests.filter(t=>t.kind!=='route').map(t=>Object.assign({ id:t.id, kind:t.kind, ref:t.ref, title:t.title, mode:t.mode, at:iso(t.at), durationSec:t.durationSec, score:t.score, max:t.max, scale:t.scale||null, parts:t.parts, mistakes:t.detail.filter(d=>d.r!=='ok') }, t.breakdown?{ breakdown:t.breakdown, options:t.opts||null }:{})),
     writings,
     notes:S.rawNotes.filter(n=>n.status==='ready' && (full || n.updatedAt>since)).map(n=>({ id:n.id, title:n.title, template:n.template, text:n.text, updatedAt:iso(n.updatedAt) })),
     _ts:now };
 }
 function getExport(full){ if(!exportCache || exportCache.full!==full) exportCache={ full, data:buildExport(full) }; return exportCache.data; }
-function markExported(data){ if(data.kind!=='delta') return; S.lastExportAt=data._ts; S.exports.push({ at:data._ts, attempts:data.attempts.length, tests:data.tests.length, writings:data.writings.length, productions:data.productions.length }); exportCache=null; save(); }
+function markExported(data){ if(data.kind!=='delta') return; S.lastExportAt=data._ts; S.exports.push({ at:data._ts, attempts:data.attempts.length, tests:data.tests.length+data.routeTests.length, writings:data.writings.length, productions:data.productions.length }); exportCache=null; save(); }
 function exportJSON(data){ const d=Object.assign({},data); delete d._ts; return JSON.stringify(d); }
 async function copyText(text){
   try{ await navigator.clipboard.writeText(text); return true; }
@@ -962,6 +986,7 @@ function analyzeImport(list){
     if(Array.isArray(d.convertedNotes)) e.converted=d.convertedNotes.length;
     const ll=[...(Array.isArray(P.learnList)?P.learnList:[]), ...(Array.isArray(d.learnList)?d.learnList:[])].filter(x=>typeof x==='string');
     if(ll.length) e.learnList=ll;
+    analyzePackRoutes(P, e);
     if(d.message) e.message=String(d.message);
     rep.entries.push(e);
   }
@@ -991,7 +1016,8 @@ function applyImport(rep){
     if(Array.isArray(d.retire)) for(const p of S.packs) for(const k of PACK_KEYS) if(p[k]) p[k]=p[k].filter(x=>!d.retire.includes(keyOf(k,x)));
     if(Array.isArray(d.convertedNotes)) for(const c of d.convertedNotes){ const nid=typeof c==='string'?c:c.noteId; const n=S.rawNotes.find(x=>x.id===nid); if(n){ n.status='converted'; n.pageIds=c.pageIds||[]; } }
     if(d.message) S.messages.push({ at:Date.now(), text:String(d.message), read:false });
-    if(e.learnList){ S.learnList=[...new Set([...(S.learnList||[]), ...e.learnList])]; out.push(T(`${e.learnList.length} in your learning list`,`${e.learnList.length} en tu lista de aprendizaje`)); }
+    if(e.learnList){ routeAdd(listRoute(true), e.learnList); out.push(T(`${e.learnList.length} in your learning list`,`${e.learnList.length} en tu lista de aprendizaje`)); }
+    if(e.routes){ const r=applyPackRoutes(e); if(r.nw) out.push(T(`${r.nw} new ${r.nw===1?'route':'routes'}`,`${r.nw} ${r.nw===1?'ruta nueva':'rutas nuevas'}`)); if(r.up) out.push(T(`${r.up} ${r.up===1?'route':'routes'} updated`,`${r.up} ${r.up===1?'ruta actualizada':'rutas actualizadas'}`)); }
   }
   rebuild(); exportCache=null; pendingImport=null; save();
   return out.length ? T('Done: ','Hecho: ')+out.join('; ')+'.' : T('Applied.','Aplicado.');
@@ -999,14 +1025,14 @@ function applyImport(rep){
 function importPreviewHTML(rep){
   const label=(k,c)=>{ const bits=[]; if(c.nw) bits.push(T(`${c.nw} new`,`${c.nw} nuevos`)); if(c.up) bits.push(T(`${c.up} updated`,`${c.up} actualizados`)); if(c.bad) bits.push(`<span class="bad-t">${T(`${c.bad} with errors`,`${c.bad} con errores`)}</span>`); return `${lab(PACK_L,k)}: ${bits.join(', ')}`; };
   return `<div class="panel note preview"><h3>${T('Check before applying','Revisa antes de aplicar')}</h3>
-    ${rep.entries.map(e=>{
+    ${rep.entries.map((e,ei)=>{
       if(e.kind==='error') return `<p class="bad-t">${esc(e.msg)}</p>`;
       if(e.kind==='backup') return `<p><b>${T('Backup','Copia de seguridad')}</b>${e.when?` ${T('from','del')} ${esc(fmtDate(Date.parse(e.when)))}`:''}. <span class="bad-t">${T('It will replace all your current data.','Sustituirá todos tus datos actuales.')}</span></p>`;
       return `<div class="pv-entry"><b>${esc(e.name)}</b> <span class="chip">${e.existing?(e.mode==='merge'?T('merges with the one you have','se fusiona con el que tienes'):T('replaces the one you have','sustituye al que tienes')):T('new','nuevo')}</span>
         <ul class="small">${Object.entries(e.counts).map(([k,c])=>`<li>${label(k,c)}</li>`).join('')}
         ${e.feedback?`<li>${T('Writing corrections:','Correcciones de writing:')} ${e.feedback.ok}${e.feedback.missing?T(` (${e.feedback.missing} for texts not on this phone)`,` (${e.feedback.missing} de textos que no están en este móvil)`):''}</li>`:''}
         ${e.review!=null?`<li>${T('Words to review now:','Palabras para repasar ya:')} ${e.review}</li>`:''}${e.retire?`<li>${T('Items to remove:','Elementos a retirar:')} ${e.retire}</li>`:''}
-        ${e.converted?`<li>${T('Notes marked as converted:','Apuntes marcados como convertidos:')} ${e.converted}</li>`:''}${e.learnList?`<li>${T('Added to your learning list:','Se añaden a tu lista de aprendizaje:')} ${e.learnList.length}</li>`:''}${e.message?`<li>${T('Includes a note for you','Incluye una nota para ti')}</li>`:''}</ul>
+        ${e.converted?`<li>${T('Notes marked as converted:','Apuntes marcados como convertidos:')} ${e.converted}</li>`:''}${e.learnList?`<li>${T('Added to your learning list:','Se añaden a tu lista de aprendizaje:')} ${e.learnList.length}</li>`:''}${packRoutesPreview(e, ei)}${e.message?`<li>${T('Includes a note for you','Incluye una nota para ti')}</li>`:''}</ul>
         ${e.errors.length?`<details><summary class="small bad-t">${T(`${e.errors.length} ${e.errors.length===1?"item won't":"items won't"} be loaded: see why`,`${e.errors.length} ${e.errors.length===1?'elemento no se cargará':'elementos no se cargarán'}: ver por qué`)}</summary><ul class="small">${e.errors.slice(0,30).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><p class="small muted">${T('Give this list to Claude so it can fix it.','Pásale esta lista a Claude para que lo corrija.')}</p></details>`:''}</div>`;
     }).join('')}
     <div class="row" style="margin-top:12px">${rep.ok?`<button class="btn primary" data-act="applyimport">${T('Apply','Aplicar')}</button>`:''}<button class="btn" data-act="cancelimport">${T('Cancel','Cancelar')}</button></div></div>`;
@@ -1084,6 +1110,11 @@ function afterRender(){
   const nt=$('#ntitle'); if(nt) nt.addEventListener('input',()=>{ const n=S.rawNotes.find(x=>x.id===noteId); n.title=nt.value; n.updatedAt=Date.now(); clearTimeout(saveTimer); saveTimer=setTimeout(save,700); });
   if(view==='session' && current && !current.checked && !current.spoken){ const ex=current.ex; if(ex?.auto && ex.say){ current.spoken=true; setTimeout(()=>speak(ex.say), 350); } }
   const lq=$('#libq'); if(lq) lq.addEventListener('input',()=>{ libQuery=lq.value; $('#liblist').innerHTML=libListHTML(); });
+  const rn=$('#rname'); if(rn) rn.addEventListener('input',()=>{ const f=sheet&&sheet.creating ? sheet : newForm; if(f) f.name=rn.value; });
+  const red=$('#redname'); if(red) red.addEventListener('input',()=>{ const r=routeById(routeRef), v=red.value.trim(); if(!r || !v) return;
+    r.name=v.slice(0,60); r.renamed=true; delete r.name_en; r.updatedAt=Date.now(); clearTimeout(saveTimer); saveTimer=setTimeout(()=>{ exportCache=null; save(); },500); });
+  const aq=$('#raddq'); if(aq) aq.addEventListener('input',()=>{ addQuery=aq.value; $('#raddlist').innerHTML=addListHTML(); });
+  if(sheet && sheet.fresh){ sheet.fresh=false; setTimeout(()=>(document.querySelector('.sheetp [role="checkbox"], .sheetp input, .sheetp .btn'))?.focus(), 60); }
   const sa=$('#ans'); if(sa && current?.ex?.kind==='self') sa.addEventListener('input',()=>{ current.ui.text=sa.value; });
 }
 function playKey(key){
@@ -1099,13 +1130,14 @@ document.addEventListener('click', async e=>{
   const t=e.target.closest('button, [data-go], tr[data-say], tr[data-result], tr[data-item], tr[data-unit], tr[data-lib]'); if(!t || t.disabled) return;
   const ds=t.dataset;
   if(ds.go){ go(ds.go); return; }
+  if(routeClick(ds)) return;
   if(ds.opt!==undefined){ check(ds.opt); return; }
   if(ds.say){ speak(ds.say); return; }
   if(ds.q && ds.v!==undefined){ if(!S.run) return; S.run.answers[ds.q]=ds.v; save(); const y=window.scrollY; render(); window.scrollTo(0,y); return; }
   if(ds.play){ playKey(ds.play); return; }
   if(ds.new){ const w=createWriting(ds.new); save(); editing=w.id; go('write'); return; }
   if(ds.open){ editing=ds.open; go('write'); return; }
-  if(ds.page){ const i=ds.page.indexOf(':'); pageRef=[ds.page.slice(0,i), ds.page.slice(i+1)]; go('page'); return; }
+  if(ds.page){ const i=ds.page.indexOf(':'); pageRef=[ds.page.slice(0,i), ds.page.slice(i+1)]; pageRoute=ds.rid||null; go('page'); return; }
   if(ds.topic){ startTopic(ds.topic); return; }
   if(ds.part){ const [s,p]=ds.part.split(':'); startPart(s, +p); return; }
   if(ds.paper){ startPaper(ds.paper); return; }
@@ -1118,8 +1150,8 @@ document.addEventListener('click', async e=>{
   if(ds.ch){ startChallenge(ds.ch); return; }
   if(ds.focus){ startMixed({ n:10, focus:'weak', level:'all', timer:false, only:ds.focus }); return; }
   if(ds.item){ if(view!=='item') itemBack=view; itemId=ds.item; go('item'); return; }
-  if(ds.unit){ if(!UNITS.has(ds.unit)) return; if(view!=='unit') unitBack=['library','progress','result'].includes(view)?view:view==='session'?'home':'library'; if(view==='session') current=null; unitRef=ds.unit; libRef=ds.unit.split(':')[0]; go('unit'); return; }
-  if(ds.lib){ libRef=ds.lib; libFilter=''; libQuery=''; go('library'); return; }
+  if(ds.unit){ if(!UNITS.has(ds.unit)) return; if(view!=='unit') unitBack=['library','progress','result','route','routestats'].includes(view)?view:view==='session'?'home':'library'; if(view==='session') current=null; unitRef=ds.unit; libRef=ds.unit.split(':')[0]; go('unit'); return; }
+  if(ds.lib){ libRef=ds.lib; libFilter=''; libQuery=''; libSel=null; go('library'); return; }
   if(ds.lfilter!==undefined){ libFilter=libFilter===ds.lfilter?'':ds.lfilter; render(); return; }
   if(ds.lsort){ libSort=ds.lsort; render(); return; }
   if(ds.learnlib!==undefined){ learnCfg.lib=ds.learnlib; learnCfg.theme=''; go('learn'); return; }
@@ -1130,8 +1162,8 @@ document.addEventListener('click', async e=>{
   if(ds.libtest){ S.settings.libtest.lib=ds.libtest; S.settings.libtest.theme=''; if(S.settings.libtest.scope==='theme') S.settings.libtest.scope='all'; startLibTest({ lib:ds.libtest }); return; }
   if(ds.lt){ const c=S.settings.libtest; c[ds.lt]= ds.lt==='n' ? +ds.val : ds.val; if(ds.lt==='lib'){ c.theme=''; if(c.scope==='theme') c.scope='all'; } save(); const y=window.scrollY; render(); window.scrollTo(0,y); return; }
   if(ds.practise){ startPractiseOne(ds.practise); return; }
-  if(ds.learnlist){ const l=S.learnList||(S.learnList=[]), i=l.indexOf(ds.learnlist); if(i<0) l.push(ds.learnlist); else l.splice(i,1); save(); render(); toast(i<0?T('Added to your learning list.','Añadido a tu lista de aprendizaje.'):T('Removed from your learning list.','Quitado de tu lista de aprendizaje.')); return; }
-  if(ds.learnthese){ startLearn(ds.learnthese.split('|').map(id=>UNITS.get(id)).filter(Boolean).slice(0,8)); return; }
+  if(ds.rchoice){ const [ei,ri,v]=ds.rchoice.split('|'), it=pendingImport?.entries[+ei]?.routes?.[+ri]; if(it){ it.choice=v; const y=window.scrollY; render(); window.scrollTo(0,y); } return; }
+  if(ds.learnthese){ startLearn(ds.learnthese.split('|').map(id=>UNITS.get(id)).filter(Boolean).slice(0,8), ds.rid ? { routeId:ds.rid, routeMode:'learn' } : {}); return; }
   if(ds.preset){ S.settings.mixPreset=ds.preset; save(); render(); return; }
   if(ds.share){ const sh=Object.assign({}, currentShares()); sh[ds.share]=Math.max(0, Math.min(60, (sh[ds.share]||0)+(+ds.d))); S.settings.mixShares=sh; S.settings.mixPreset='custom'; save(); const y=window.scrollY; render(); window.scrollTo(0,y); return; }
   if(ds.ml && current && !current.checked){ const ui=current.ui; if(ui.pairs[ds.ml]){ delete ui.pairs[ds.ml]; ui.sel=null; } else ui.sel=ds.ml; render(); return; }
@@ -1145,8 +1177,8 @@ document.addEventListener('click', async e=>{
   if(ds.flash && current && !current.checked){ check(ds.flash); return; }
   if(ds.mfilter!==undefined){ mistakeCat=ds.mfilter; render(); return; }
   if(ds.sp){ sp={ part:+ds.sp, idx:Math.floor(Math.random()*20), end:0 }; render(); return; }
-  if(ds.newnote!==undefined){ newNote(ds.newnote); return; }
-  if(ds.note){ noteId=ds.note; go('note'); return; }
+  if(ds.newnote!==undefined){ noteBack='study'; newNote(ds.newnote); return; }
+  if(ds.note){ noteBack=view==='route'?'route':'study'; noteId=ds.note; go('note'); return; }
   if(ds.copytpl){ const tp=NOTE_TEMPLATES.find(x=>x.id===ds.copytpl); toast(await copyText(tpl(tp,'text'))?T('Template copied.','Plantilla copiada.'):T("Couldn't copy.",'No se pudo copiar.')); return; }
   if(ds.packtoggle){ const p=S.packs.find(x=>x.id===ds.packtoggle); p.off=!p.off; rebuild(); exportCache=null; save(); render(); toast(p.off?T('Pack turned off: its content no longer appears.','Pack desactivado: su contenido deja de aparecer.'):T('Pack turned on.','Pack activado.')); return; }
   if(ds.packview){ openPack=openPack===ds.packview?null:ds.packview; render(); return; }
@@ -1162,7 +1194,7 @@ document.addEventListener('click', async e=>{
     case 'learnauto': startLearn(chooseNewUnits('', '', 5)); break;
     case 'learnstart': case 'learnmore': startLearn(chooseNewUnits(learnCfg.lib, learnCfg.theme, learnCfg.n)); break;
     case 'learnfailed': { const ss=S.session; const ids=[...new Set(ss.results.filter(r=>r.r==='bad').map(r=>r.uid))].map(id=>UNITS.get(id)).filter(Boolean).slice(0,8); startLearn(ids); break; }
-    case 'learnlist': libRef=(S.learnList||[])[0]?.split(':')[0]||'pv'; libFilter='state:list'; go('library'); break;
+    case 'learnlist': go('routes'); break;
     case 'libtest': startLibTest(); break;
     case 'keepgoing': keepGoing(); break;
     case 'gotit': gotIt(); break;
@@ -1216,6 +1248,15 @@ document.addEventListener('click', async e=>{
   }
 });
 document.addEventListener('keydown', e=>{
+  // The "Save to…" sheet: Esc closes it, Tab stays inside it, Enter in the name field creates the route
+  if(sheet){
+    if(e.key==='Escape'){ e.preventDefault(); closeSheet(); return; }
+    if(e.key==='Tab'){ const f=[...document.querySelectorAll('.sheetp button:not(:disabled), .sheetp input')]; if(!f.length) return;
+      const i=f.indexOf(document.activeElement), j=e.shiftKey ? (i<=0 ? f.length-1 : i-1) : (i<0 || i===f.length-1 ? 0 : i+1); e.preventDefault(); f[j].focus(); return; }
+    if(e.key==='Enter' && e.target.id==='rname'){ e.preventDefault(); routeClick({ act:'rcreatesave' }); }
+    return;
+  }
+  if(e.key==='Enter' && e.target.id==='rname' && newForm){ e.preventDefault(); routeClick({ act:'rcreate' }); return; }
   if(e.key!=='Enter' || view!=='session' || !current) return;
   if(!current.checked && ((e.target.id==='ans' && current.ex?.kind!=='self') || e.target.classList?.contains('mf'))){ e.preventDefault(); submitCurrent(); }
   else if(current.checked && e.target.tagName!=='BUTTON'){ e.preventDefault(); next(); }

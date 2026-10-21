@@ -1,6 +1,6 @@
 # Lexi: formatos de pack (guía para Claude)
 
-Esta guía describe qué JSON entiende Lexi (versión 7) al importar un pack y cómo lo convierte en ejercicios. El README tiene el resumen; aquí está el detalle con ejemplos.
+Esta guía describe qué JSON entiende Lexi (versión 7.1) al importar un pack y cómo lo convierte en ejercicios. El README tiene el resumen; aquí está el detalle con ejemplos.
 
 ## 1. Estructura general
 
@@ -13,7 +13,8 @@ Esta guía describe qué JSON entiende Lexi (versión 7) al importar un pack y c
     "mode": "replace",
     "items": [], "tasks": [], "papers": [], "pages": [], "grammar": [], "phrasal": [],
     "connectors": [], "collocations": [], "families": [], "transformations": [],
-    "learnList": ["cn:nevertheless", "pv:look out"]
+    "learnList": ["cn:nevertheless", "pv:look out"],
+    "routes": []
   },
   "feedback": [], "review": [], "retire": [], "convertedNotes": [], "message": "…"
 }
@@ -119,7 +120,24 @@ Etapas: 0 New, 1 Learning, 2 Familiar, 3 Known, 4 Strong, 5 Mastered. Para pasar
 
 ### `learnList`
 
-Lista de uids que se añaden a "Mi lista de aprendizaje": van primero en *Learn new* y se pueden testear aparte.
+Lista de uids que se añaden a la ruta "My learning list" (se crea si no existe). Desde la 7.1 es una ruta más: lo que está en cualquier ruta va primero en *Learn new* y se puede testear aparte.
+
+### `routes` (v7.1)
+
+Rutas de estudio preparadas por ti. El alumno las ve en *Study → My routes* igual que las que crea él con el botón **Save**, y puede editarlas.
+
+```json
+"routes": [
+  { "id": "pv-core-25", "name": "25 phrasal verbs activos", "name_en": "25 active phrasal verbs", "icon": "🎯",
+    "items": ["pv:find out", "cn:in case", "col:make a decision", "grammar:g-future", "page:r-connectors", "voc:m01"] }
+]
+```
+
+- `id` y `name` son obligatorios; `name_en` (se muestra en modo inglés) e `icon` (un emoji) son opcionales.
+- `items` es la lista ordenada de referencias. Valen los uids de unidad (`pv:`, `cn:`, `col:`, `irr:`, `wf:`, `tr:`, `voc:`, `gr:`) y además `grammar:<id del tema>` (teoría + todas sus preguntas), `page:<id de página>` y `note:<id de apunte>`. También se acepta `{ "ref": "pv:find out" }`.
+- Una referencia de tipo desconocido se descarta con su motivo (`routes[0] (pv-core-25): items[3] is not a valid reference…`). Una referencia válida que no existe (ni en la app ni en el mismo pack) no bloquea nada: se guarda y se muestra como **pendiente** hasta que llegue su contenido.
+- Si el pack se vuelve a importar y la ruta no se ha tocado en el móvil, se actualiza sin preguntar (las fechas de alta de los elementos que ya estaban se conservan). Si el alumno la ha cambiado, la vista previa pregunta **Update / Keep mine** (por defecto, conservar la suya).
+- Los bloques (`blocks`, `unlock`) llegarán en la 7.2: de momento se ignoran.
 
 ## 4. Formatos que la app genera
 
@@ -132,6 +150,33 @@ Lista de uids que se añaden a "Mi lista de aprendizaje": van primero en *Learn 
 
 Cuanto más completos vengan los datos (dos ejemplos, `wrong`, `syn`, `confuseWith`, `sit`), más formatos puede generar cada unidad.
 
-## 5. Lo que llega en la exportación (v4)
+## 5. Lo que llega en la exportación (v5)
 
 Cada intento lleva `uid`, `format`, `skill`, `mode` y `hintShown`. El resumen trae `units` (etapas por librería), `accuracyBySkill`, `accuracyByFormat` y `stuck` (unidades con 3 o más fallos en la última semana). `productions` trae las frases propias del alumno para que las corrijas. Al preparar un pack, prioriza las unidades de `stuck` y los formatos con menos acierto.
+
+### Rutas (v5, Lexi 7.1)
+
+- `attempts[].routeId` y `attempts[].routeMode` (`learn`, `practise`, `flashcards`, `test`): solo cuando la actividad se hizo desde una ruta. `mode` vale entonces `learn`, `route` (Practise), `flash` o `routetest`.
+- `routes`: en "Copy updates", solo las rutas creadas, cambiadas o estudiadas desde el último envío; en la copia completa, todas.
+
+```json
+"routes": [ { "id": "r_k3x9", "name": "Conectores para el writing", "source": "user", "pinned": true, "createdAt": "…", "updatedAt": "…",
+  "items": [ { "ref": "cn:however", "addedAt": "…", "stage": 2, "asked": 5, "accuracy": 80, "lastResult": "ok" },
+             { "ref": "grammar:g-linkers", "addedAt": "…", "questions": 9, "read": true },
+             { "ref": "pv:no such verb", "addedAt": "…", "pending": true } ],
+  "summary": { "knownPct": 40, "units": 15, "theoryRead": 1, "theoryTotal": 1, "minutes": 22, "sessions": 3, "tests": 2, "lastActivity": "…" } } ]
+```
+
+- `routeTests`: cada test de ruta del periodo, con **todos** sus fallos. Los tests de ruta ya no se repiten en `tests`.
+
+```json
+"routeTests": [ { "id": "t…", "routeId": "r_k3x9", "at": "…", "options": { "length": 10, "scope": "all", "mode": "mixed", "timer": false },
+  "score": 7, "max": 10, "durationSec": 240, "byType": { "cn": { "n": 6, "ok": 4 }, "theory": { "n": 4, "ok": 3 } }, "bySkill": { … }, "byFormat": { … },
+  "mistakes": [ { "question": "It was raining. ___, we went out.", "given": "despite", "correct": "However", "uid": "cn:however", "format": "connfn" } ] } ]
+```
+
+`options.length` es 10, 20, 30 o `"full"`; `scope` es `all`, `type:<pv|cn|col|irr|wf|tr|voc|theory>`, `lastfail`, `weak` o `retry` ("Retry my mistakes").
+- `summary.routes`: por cada ruta con actividad en el periodo, `scores` (`at`, `pct` de cada test) y `weak` (las 5 unidades con peor acierto: `uid`, `term`, `accuracy`, `asked`).
+- `summary.learnList`: las referencias de la ruta "My learning list".
+
+Al preparar un pack, mira `routeTests[].mistakes` y `summary.routes[].weak`: son lo que el alumno ha elegido estudiar y aún falla.

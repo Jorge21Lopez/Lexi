@@ -214,3 +214,135 @@ También revisé a mano en Chrome (escritorio) matching, spot and fix, three for
   3. Si se sube a mano: Add file → Upload files con **todos** los archivos nuevos, sobre todo los 6 `.js` nuevos. Sin ellos la app no arranca.
   4. En el móvil, abrir la app una vez con conexión: el service worker descarga la versión nueva y los datos se migran solos al abrirla.
   5. Recomendado: descargar una copia de seguridad (Datos) **antes** de abrir la v7 por primera vez.
+
+---
+
+# v7.1: Save to route
+
+## 1. Resumen
+
+Lexi 7.1.0 permite crear **rutas de estudio propias sin JSON**, como una playlist. Cualquier cosa se guarda con el botón **Save** (marcador): un conector, un phrasal verb, una collocation, un irregular, una familia, una transformación, una palabra, una pregunta o un tema de gramática, una página o un apunte. La hoja inferior permite marcar una o varias rutas o crear una nueva en el mismo paso, y el toast permite deshacer.
+Cada ruta tiene su pantalla, con los elementos agrupados por tipo, y sus propias acciones: Learn, Practise 10/20/30, Flashcards, Test, Read theory y Stats. Se puede editar (renombrar, emoji, subir/bajar, quitar, fijar en Home, duplicar, borrar) y ampliar con un buscador global en inglés y español.
+El progreso sigue siendo por unidad: quitar elementos o borrar rutas nunca lo toca. La "learning list" de la 7.0 se convierte en la ruta "My learning list".
+Los packs pueden traer `routes` y la exportación pasa a la **versión 5** (`routes`, `routeTests`, `routeId` en los intentos y `summary.routes`). Pasan los **51 tests** (38 anteriores y 13 nuevos).
+Lo pactado para la **7.2** (bloques y ajustes de lógica de la práctica diaria) no está en esta entrega.
+
+## 2. Qué se hizo y dónde
+
+- **Archivo nuevo `routes.js`** (≈480 líneas, cargado entre `study.js` y `app.js`). Contiene:
+  - referencias y rutas (`refUnits`, `routeUnits`, `routedUids`, con caché);
+  - el botón y la hoja "Save to…";
+  - las pantallas My routes, ruta, edición, Add more, test de ruta y Stats;
+  - la práctica de ruta, los tests de ruta con comparación, el import de `routes` y la exportación.
+- **`app.js`**:
+  - estado v4 y migración `migrateRoutes`;
+  - toast con "Undo";
+  - iconos nuevos;
+  - vistas nuevas en el router;
+  - la hoja se pinta encima de cualquier pantalla;
+  - teclado: Esc, foco atrapado y Enter;
+  - marcador en páginas, temas y apuntes;
+  - import de `routes` y `learnList` con pregunta en la vista previa;
+  - exportación v5;
+  - `APP_VERSION` 7.1.0.
+- **`study.js`**:
+  - filas de librería con marcador y modo "Select";
+  - marcador en la ficha y en la tarjeta de corrección;
+  - sesiones de ruta (`routeId`/`routeMode` en cada intento);
+  - "My routes" en Study y rutas fijadas en Home.
+- **`practice.js`**: cierre del test de ruta (`kind:'route'`, desglose por tipo), títulos de las sesiones de ruta y resumen con comparación, "Retry my mistakes" y "Practise these".
+- **`engine.js`**: los 4 usos de `learnList` pasan a "está en alguna ruta". Afecta a la prioridad de nuevas, a *Learn new*, a la librería más floja y al alcance "In my routes" del test de librería.
+- **`stats.js`**: marcador en la vista de ítem (vocabulario y gramática) y "Save the topic"; el cuaderno de errores no duplica los tests de ruta, porque sus fallos ya están en los intentos.
+- **Resto**: estilos en `index.html`, `routes.js` en `sw.js` (`VERSION` lexi-7.1.0), documentación en `README.md` y `docs/lexi-prompt-formatos.md`, y tests en `tests/run.js`.
+
+## 3. Auditoría final (requisito por requisito)
+
+Leyenda: ✅ hecho · 🟡 hecho con matiz · ⏭️ pasa a la 7.2 (acordado con el usuario antes de empezar).
+
+| Requisito del prompt | Estado | Dónde | Cómo se comprueba |
+|---|---|---|---|
+| 2. Modelo `S.routes` (`id`, `name`, `icon`, `items[{ref, addedAt}]`, `pinned`, `source`, fechas) | ✅ | `routes.js` `makeRoute` | tests "routes 1–8" |
+| 2. `ref` admite todos los uids y `grammar:`, `page:`, `note:` | ✅ | `refKind`, `refUnits`, `refExists` | routes 2, 5 y "Add more" |
+| 2. Un elemento en varias rutas | ✅ | `routesWith` | routes 3 |
+| 2. Progreso por unidad; quitar o borrar no lo toca | ✅ | las rutas solo guardan referencias | routes 6 (compara `S.units` antes y después) |
+| 2. Migración de la `learnList` a "My learning list", en el mismo orden | ✅ | `app.js` `migrateRoutes` (estado v3 → v4) | routes 7 y "migration" |
+| 2.1 Bloques | ⏭️ | – | – |
+| 3. Save en fichas de unidad, ítems de vocabulario y gramática, temas, guías y apuntes | ✅ | `backBar(…, saveBtn())` | routes 1 y recorrido |
+| 3. Save en cada fila de las librerías | ✅ | `unitRow(u, { save:true })` | recorrido |
+| 3. Save en la tarjeta de corrección | ✅ | `exerciseHTML` (veredicto) | recorrido (sesiones) |
+| 3. Save en cada fallo del resultado del test | ✅ | `quizSummaryHTML` y `renderResult` | recorrido |
+| 3. Icono vacío / relleno / número | ✅ | `saveBtn` | routes 1 |
+| 3. Hoja con casillas, última ruta arriba, "+ New route" con emoji, Done y toast con Undo | ✅ | `sheetHTML`, `closeSheet` | routes 1 y 3 |
+| 3. Selección múltiple → "Save selected to…" | ✅ | modo "Select" de la librería | routes 4 |
+| 4.1 My routes: tarjetas con tipos y progreso, "+ New route", fijadas primero | ✅ | `renderRoutes` | recorrido |
+| 4.2 Detalle agrupado por tipo, etapa por unidad, teoría leída/sin leer | ✅ | `renderRoute` | routes 2 |
+| 4.2 Learn / Practise (con preguntas de gramática) / Flashcards / Test / Read theory / Stats | ✅ | `routeGo` | routes 5 y "Add more / read" |
+| 4.2 Editar: renombrar, emoji, reordenar, quitar, fijar, duplicar, borrar con confirmación | 🟡 | `routeEditHTML` | routes 6 (reordenar solo con subir/bajar, como se acordó) |
+| 4.2 "Add more": buscador global EN/ES con selección múltiple | ✅ | `addCandidates` (sin tildes) | "aplazar" → *put off* |
+| 4.3 Home: rutas fijadas con Practise directo | ✅ | `homeRoutesHTML` | recorrido |
+| 5.1 Test: longitud 10/20/30/Full, alcance (todo, un tipo, fallos del último, bajo Known), modo (incl. Production), cronómetro | ✅ | `renderRouteTest`, `buildRouteTest` | routes 9 |
+| 5.1 Sin repeticiones en Full; cobertura en el resto | ✅ | `routeAsked` | routes 9 y 10 |
+| 5.1 Gramática en su formato original | ✅ | `genFor(u, { only:['gq'] })` | routes 5 |
+| 5.2 Desglose por tipo, skill y formato | ✅ | `typeBreakdown` + `breakdownOf` | routes 9 |
+| 5.2 Comparación con el test anterior y unidades mejor/peor | ✅ | `routeCompare` | routes 11 |
+| 5.2 Fallos con enlace; Retry my mistakes / Learn these / Practise these | ✅ | `quizSummaryHTML` | routes 9 |
+| 5.2 El test actualiza el aprendizaje | ✅ | igual que el resto de tests | – |
+| 5.3 Historial con gráfico SVG, tabla ordenable, resumen y puntos débiles | ✅ | `renderRouteStats` | routes 11 |
+| 5.3 Toda la actividad de ruta lleva `routeId` | ✅ | `check()` → `rid`/`rm` | routes 5 y 12 |
+| 6. "Prioritise my routes", meta "use", "Only learn new … from my routes", "recognise only" | ⏭️ | – | Lo guardado en rutas ya va primero entre las nuevas, como hacía la `learnList` |
+| 7. `routes` en packs: validación con motivos, pendientes, `source:'pack'`, editables | ✅ | `analyzePackRoutes` | routes 8 |
+| 7. Reimportar: preguntar si se cambió | ✅ | vista previa "Update / Keep mine" | routes 8 |
+| 7. `learnList` de los packs → "My learning list" | ✅ | `applyImport` | "packs" |
+| 7. Exportación v5: `routes`, `routeTests` con todos los fallos, `routeId`/`routeMode` en `attempts`, `summary.routes`; parcial sin repetir y completa con todo | ✅ | `routesExport`, `routeTestsExport`, `routesSummary` | routes 12 |
+| 8. Pruebas 1–12 y 15 | ✅ | `tests/run.js` | 13 tests nuevos y recorrido ampliado |
+| 8. Pruebas 13–14 (bloques y "solo nuevas de mis rutas") | ⏭️ | – | – |
+| 1. `APP_VERSION`/`VERSION` 7.1.0, tests en verde, 44 px, móvil primero | ✅ | – | 51/51 |
+
+### Desviaciones e interpretaciones
+
+- **Reordenar** se hace con botones de subir y bajar, sin arrastrar. Se acordó así por fiabilidad en móvil y por accesibilidad.
+- **Hoja inferior.** El Undo deshace todo lo hecho desde que se abrió la hoja, también una ruta creada en ella. Al cerrarse, el foco vuelve al marcador.
+- **Practise de ruta.** Es la única práctica que ignora el enfriamiento de 4 horas, porque el alumno la pide explícitamente. Si la ruta es corta, sus unidades se repiten en otros formatos hasta llenar la sesión. Las unidades nuevas cuentan para el límite diario de nuevas.
+- **Learn y Flashcards de ruta** usan las librerías de estudio y el vocabulario. Las preguntas de gramática solo entran en Practise y en Test.
+- **"Leído"** solo existe para temas y páginas. Los apuntes propios no tienen estado de lectura.
+- **"Veces preguntada"** en Stats es el total de ejercicios de esa unidad en toda la app, no solo dentro de la ruta. El progreso es por unidad.
+- **Exportación.** Los tests de ruta salen en `routeTests` y ya no en `tests`, para no duplicarlos. `summary.tests` los sigue resumiendo.
+- **Estado y datos antiguos.** El estado pasa a la versión 4. `S.learnList` se conserva sin tocar, igual que `S.srs` en la 7.0, pero ya no se actualiza.
+
+### Revisión del código
+
+- Revisé el diff completo, unas 480 líneas añadidas y 90 cambiadas en 10 archivos, más `routes.js`. No hay cambios de saltos de línea ni de archivos enteros.
+- Ningún atributo `data-*` nuevo choca con los existentes.
+- Encontré y corregí dos fallos:
+  - El alcance "Un tipo" del test preguntaba toda la ruta hasta elegir un tipo. Ahora se elige el primero automáticamente.
+  - El foco no volvía al marcador al cerrar la hoja.
+- **Rendimiento:** `routedUids()` va con caché por contenido, para no recalcularse en cada fila de la librería. Una sesión de 40 sigue tardando de media 3–5 ms.
+
+### Regresión
+
+- `node tests/run.js` → **51/51**, estable en 4 ejecuciones seguidas.
+- Los 38 tests anteriores siguen pasando. Cinco se han adaptado porque comprobaban el comportamiento de la 7.0: estado v3, export v4, botón "Add to my learning list" y `S.learnList`.
+- El recorrido de pantallas (vacío y estado v6, en EN y ES) tiene ahora 20 pasos más con todas las pantallas de rutas. No aparece `undefined` ni `NaN`, y no hay español en modo EN.
+- **Navegador real** (Chrome, servidor local): ficha → Save → crear ruta con Enter → Esc → toast con Undo → marcador relleno; pantalla de la ruta; Home con la ruta fijada. Sin errores en la consola.
+
+## 4. Limitaciones conocidas
+
+- **No se ha probado con un backup real del alumno**, solo con los estados de prueba (v6 y v3 con `learnList`). Antes de abrir la 7.1: Data → Download backup.
+- **Sin probar en un móvil real:** la hoja inferior se ha visto en Chrome de escritorio, no en un móvil.
+- **Packs:** las rutas sin tocar se actualizan sin preguntar. Si el alumno solo las ha estudiado, sin cambiarlas, cuentan como "no tocadas".
+- **Una ruta borrada a mitad de sesión** termina la sesión con normalidad, pero sin el botón "Volver a la ruta".
+
+## 5. Para la 7.2 (pendiente, acordado)
+
+1. **Bloques** (`blocks`, `unlock: stage|manual|open`, "Split into blocks", división automática en bloques de N), alcance "bloque actual" en Learn, Practise y Test, y `routes[].blocks` en los packs (`pv-core-25` en 5 bloques).
+2. **Ajustes de lógica:**
+   - "Prioritise my routes in daily practice";
+   - meta "use": para pasar de la etapa 4 a la 5, acierto de producción desde el último cambio de etapa;
+   - "Only learn new [librería] from my routes", activado por defecto en phrasal verbs si alguna ruta los tiene;
+   - "Units not saved in any route: recognise only", con el mínimo de producción calculado solo sobre las unidades de rutas.
+3. **Pruebas 13 y 14 del prompt.**
+
+## 6. Publicar
+
+- `node tests/run.js` debe dar 51/51.
+- Commit y push a `main`: GitHub Actions la publica. Si se sube a mano, hay que incluir el archivo nuevo `routes.js`, porque sin él la app no arranca.

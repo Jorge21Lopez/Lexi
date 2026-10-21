@@ -171,4 +171,11 @@ Al pulsar **Test** en una ruta, se abre una pantalla de opciones:
 ## 9. Documentación y entrega
 - Documenta `routes` (en packs) y los campos nuevos de la exportación (`routes`, `routeTests`, `routeId`) en `docs/lexi-prompt-formatos.md` y `README.md`, con ejemplos JSON.
 - Añade al final de `docs/CAMBIOS-v7.md` una sección **"v7.1: Save to route"** con lo hecho, las pruebas y las limitaciones.
-- Haz el commit y el push a `main`.
+- Haz el commit y el push a `main` después de la auditoría final.
+
+## 10. Auditoría final (antes del push)
+- Revisa el diff completo en busca de errores, regresiones y pérdidas de datos en la migración.
+- Haz una tabla de trazabilidad: cada requisito (secciones 2 a 7 y pruebas 1 a 15), con su estado (hecho / parcial / no hecho), dónde está y qué test lo cubre.
+- Enumera las desviaciones e interpretaciones, con el motivo de cada una.
+- Comprueba la regresión: tests anteriores en verde, recorrido EN/ES sin `undefined`/`NaN` y migración desde un estado antiguo.
+- Escríbelo en la sección "v7.1" de `docs/CAMBIOS-v7.md` para que el usuario se lo pase a su tutor.

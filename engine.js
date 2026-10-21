@@ -626,7 +626,7 @@ function areaUnits(area){
   return BYLIB[area]||[];
 }
 function freshOrder(list, rnd){
-  const ll=new Set(S.learnList||[]), mine=list.filter(u=>ll.has(u.uid)), packs=shuf(list.filter(u=>!ll.has(u.uid) && u.item?.pack), rnd);
+  const ll=routedUids(), mine=list.filter(u=>ll.has(u.uid)), packs=shuf(list.filter(u=>!ll.has(u.uid) && u.item?.pack), rnd);
   const b1=shuf(list.filter(u=>!ll.has(u.uid) && !u.item?.pack && u.level!=='B2'), rnd), b2=shuf(list.filter(u=>!ll.has(u.uid) && !u.item?.pack && u.level==='B2'), rnd), base=[];
   while(b1.length||b2.length){ for(let k=0;k<3&&b1.length;k++) base.push(b1.shift()); if(b2.length) base.push(b2.shift()); }
   return [...mine, ...packs, ...base];
@@ -720,7 +720,7 @@ function balanceSkills(exs, rnd, gen){
 
 /* ---------- Learn new (present → recognise → use → produce) ---------- */
 function chooseNewUnits(lib, theme, n){
-  const rnd=Math.random, ll=new Set(S.learnList||[]);
+  const rnd=Math.random, ll=routedUids();
   const libs=lib ? [lib] : weakestLibs();
   for(const l of libs){
     let fresh=BYLIB[l].filter(u=>!S.units[u.uid]?.seen && (!theme || u.theme===theme));
@@ -734,7 +734,7 @@ function chooseNewUnits(lib, theme, n){
 function weakestLibs(){
   const since=Date.now()-14*DAY, acc={};
   for(const a of S.attempts){ if(a.t<since || !a.u) continue; const l=a.u.split(':')[0]; if(!STUDY_LIBS.includes(l)) continue; (acc[l]||(acc[l]={ n:0, ok:0 })); acc[l].n++; if(a.r!=='bad') acc[l].ok++; }
-  const ll=new Set((S.learnList||[]).map(x=>x.split(':')[0]));
+  const ll=new Set([...routedUids()].map(x=>x.split(':')[0]));
   return [...STUDY_LIBS].sort((a,b)=>(ll.has(b)-ll.has(a)) || ((acc[a]?acc[a].ok/acc[a].n:0.75)-(acc[b]?acc[b].ok/acc[b].n:0.75)));
 }
 function buildLearn(units){
@@ -762,7 +762,7 @@ function buildFlash(lib, n=20){
 const TEST_MODES = { meaning:['understand','recognise'], usage:['use'], mixed:null };
 function libTestPool(lib, scope, theme){
   let pool=BYLIB[lib]||[];
-  if(scope==='list'){ const ll=new Set(S.learnList||[]); pool=pool.filter(u=>ll.has(u.uid)); }
+  if(scope==='list'){ const ll=routedUids(); pool=pool.filter(u=>ll.has(u.uid)); }
   else if(scope==='learning') pool=pool.filter(u=>{ const s=S.units[u.uid]; return s && s.stage>=1 && s.stage<=3; });
   else if(scope==='weak') pool=pool.filter(u=>(S.units[u.uid]?.lapses||0)>0);
   else if(scope==='theme' && theme) pool=pool.filter(u=>u.theme===theme);

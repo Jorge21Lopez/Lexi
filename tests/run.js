@@ -134,6 +134,27 @@ const TOUR = [
   ['lesson page', a=>{ a.click({ act:'finish' }); a.click({ page:'grammar:'+a.run('lessonOfDay().g.id') }); }],
   ['data', a=>a.click({ go:'data' })],
   ['data mix tuned', a=>{ a.click({ preset:'exam' }); a.click({ share:'irr', d:'5' }); }],
+  // v7.1: routes
+  ['save sheet', a=>{ a.click({ unit:'cn:however' }); a.click({ save:'cn:however' }); }],
+  ['save sheet: new route', a=>{ a.run('sheet.name="Writing"; sheet.creating=true'); a.click({ remoji:'✍️' }); a.click({ act:'rcreatesave' }); }],
+  ['save sheet done', a=>{ a.click({ act:'sheetdone' }); a.run(`routeAdd(S.routes.find(r=>r.name==="Writing"), ["pv:give up","col:make a decision","grammar:g-linkers","page:${a.run('[...PAGES.keys()][0]')}"])`); }],
+  ['library select', a=>{ a.click({ lib:'cn' }); a.click({ act:'libsel' }); a.click({ lpick:'cn:although' }); }],
+  ['library select sheet', a=>a.click({ act:'libselsave' })],
+  ['my routes', a=>{ a.click({ act:'sheetclose' }); a.click({ go:'routes' }); a.click({ act:'rnewpage' }); }],
+  ['route', a=>a.click({ route:a.run('S.routes.find(r=>r.name==="Writing").id') })],
+  ['route edit', a=>a.click({ act:'redit' })],
+  ['route add more', a=>{ a.click({ act:'reditdone' }); a.click({ act:'radd' }); a.run('addQuery="aplazar"; render()'); a.click({ raddpick:'pv:put off' }); }],
+  ['route practise', a=>{ a.click({ act:'raddsave' }); a.click({ routego:'practise' }); }],
+  ['route practise done', a=>play(a, halfRight())],
+  ['route flashcards', a=>{ a.click({ route:a.run('S.session.routeId') }); a.click({ routego:'flash' }); a.run('render()'); a.click({ act:'flip' }); }],
+  ['route theory', a=>{ a.click({ act:'finish' }); a.click({ route:a.run('S.routes.find(r=>r.name==="Writing").id') }); a.click({ routego:'read' }); }],
+  ['route test options', a=>{ a.click({ routego:'test' }); a.click({ rt:'scope', val:'type' }); a.click({ rt:'n', val:'full' }); a.click({ rt:'timer', val:'true' }); }],
+  ['route test', a=>{ a.click({ rt:'scope', val:'all' }); a.click({ act:'rtstart' }); }],
+  ['route test result', a=>play(a, halfRight())],
+  ['route test again', a=>{ a.click({ routego:'test', rid:a.run('S.session.routeId') }); a.click({ act:'rtstart' }); play(a, right()); }],
+  ['route stats', a=>{ a.click({ route:a.run('S.session.routeId') }); a.click({ routego:'stats' }); a.click({ rsort:'stage' }); }],
+  ['route test in history', a=>a.click({ result:a.run('S.tests.filter(t=>t.kind==="route").pop().id') })],
+  ['home with a pinned route', a=>{ a.run('S.routes[0].pinned=true'); a.click({ go:'home' }); }],
 ];
 for(const [label, state] of [['empty', null], ['v6 state', v5State]]){
   for(const lang of ['en', 'es']){
@@ -159,7 +180,7 @@ for(const [label, state] of [['empty', null], ['v6 state', v5State]]){
 /* ---------- 11.1 Migration ---------- */
 test('migration: a v6 state opens without losses and each item’s progress is on its unit', ()=>{
   const st = v5State(), a = boot({ state:st, now:NOW });
-  assert.strictEqual(a.run('S.v'), 3);
+  assert.strictEqual(a.run('S.v'), 4);
   assert.strictEqual(a.run('S.packs.length'), 1);
   assert.strictEqual(a.run('S.attempts.length'), st.attempts.length);
   assert.strictEqual(a.run('S.writings.length'), 1);
@@ -389,8 +410,8 @@ test('library test: length, scope, modes and the result by skill and format', ()
   assert.ok(rec.breakdown.bySkill && rec.breakdown.byFormat && rec.detail.every(d=>d.uid && d.format));
   a.click({ learnthese:rec.detail.filter(d=>d.r!=='ok').map(d=>d.uid).join('|') });
   assert.strictEqual(a.run('S.session.mode'), 'learn');
-  // Scope: my list
-  a.run('S.session=null; S.learnList=["pv:give up","pv:put off","pv:look after"]');
+  // Scope: in my routes
+  a.run('S.session=null; routeAdd(makeRoute("Mine"), ["pv:give up","pv:put off","pv:look after"])');
   a.click({ lt:'scope', val:'list' }); a.click({ lt:'n', val:'10' }); a.click({ act:'libtest' });
   same([...new Set(a.run('S.session.q').map(x=>x.uid))].sort(), ['pv:give up','pv:look after','pv:put off']);
 });
@@ -413,10 +434,10 @@ test('unit card shows meaning, examples, mistake, confusions, data and actions',
   a.run('learnUnit("pv:come across","bad","use","natural")');
   a.click({ unit:'pv:come across' });
   const h = a.html();
-  for(const s of ['came across','find something or someone by chance','I came across with an old photo','Don\'t confuse with','Your data','Practise this one','Add to my learning list','across = from one side to the other'])
+  for(const s of ['came across','find something or someone by chance','I came across with an old photo','Don\'t confuse with','Your data','Practise this one','Save to a route','across = from one side to the other'])
     assert.ok(h.includes(s) || h.includes(s.replace("'", '&#39;')), 'missing: '+s);
-  a.click({ learnlist:'pv:come across' });
-  assert.ok(a.run('S.learnList.includes("pv:come across")'));
+  a.click({ save:'pv:come across' });
+  assert.ok(a.html().includes('class="sheetp"'), 'the bookmark opens the "Save to…" sheet');
 });
 
 /* ---------- Grading ---------- */
@@ -463,13 +484,13 @@ test('packs: new collections load, are validated with reasons and fill the learn
   assert.ok(e.errors.some(x=>/connectors\[1\].*"fn"/.test(x)), 'reason for the bad connector');
   a.run(`applyImport(analyzeImport(parseImport(${JSON.stringify(JSON.stringify(pack))})))`);
   for(const uid of ['cn:nonetheless','col:take a seat','wf:drive','tr:px1','pv:look out']) assert.ok(UNITSHAS(a, uid), uid);
-  same(a.run('S.learnList'), ['cn:nonetheless','pv:look out']);
+  same(a.run('listRoute(false).items.map(x=>x.ref)'), ['cn:nonetheless','pv:look out'], 'learnList goes to the route "My learning list"');
   assert.ok(a.run('!!genFor(UNITS.get("col:take a seat"), { only:["colverb"] })'));
   assert.ok(a.run('UNITS.get("pv:look out").wrong.good')==='Look out for the car!');
 });
 
 /* ---------- Export ---------- */
-test('export v4: uid, format, skill, mode and hint per attempt; units, skills, stuck and own sentences', ()=>{
+test('export v5: uid, format, skill, mode and hint per attempt; units, skills, stuck and own sentences', ()=>{
   const st = v5State();
   const a = boot({ state:st, now:NOW });
   a.run('S.session=null'); a.click({ practise:'pv:give up' }); play(a, halfRight());
@@ -477,7 +498,7 @@ test('export v4: uid, format, skill, mode and hint per attempt; units, skills, s
   a.run('render(); current.ui.text="I always put off my homework."; check("ok")');
   for(let k=0;k<3;k++) a.run(`S.attempts.push({ id:"cn:although", u:"cn:although", t:Date.now()-${k}*60000, r:"bad", ms:1, a:"despite", f:"connfn", s:"use", m:"daily", h:0, q:"x", c:"although" })`);
   const e = a.run('buildExport(true)');
-  assert.strictEqual(e.version, 4);
+  assert.strictEqual(e.version, 5);
   const last = e.attempts.filter(x=>x.uid==='pv:give up').pop();
   assert.ok(last.format && last.skill && last.mode==='practise' && typeof last.hintShown==='boolean');
   assert.strictEqual(e.attempts[0].uid, 'voc:m01', 'old attempts get their uid');
@@ -661,6 +682,215 @@ test('tags group the mistake notebook and the focused test', ()=>{
   a.run('S.session=null'); a.click({ focus:'tag:place-prepositions' });
   same(a.run('S.session.q.map(x=>x.uid)'), ['voc:pk-prep-1']);
   assert.strictEqual(a.run('S.session.mode'), 'focused');
+});
+
+/* ---------- v7.1: Save to route ---------- */
+const routeNamed = (a, name) => a.run(`S.routes.find(r=>r.name===${JSON.stringify(name)})`);
+const refsOf = (a, name) => routeNamed(a, name).items.map(x=>x.ref);
+function newRoute(a, name, refs=[]){ a.run(`routeAdd(makeRoute(${JSON.stringify(name)}), ${JSON.stringify(refs)})`); return routeNamed(a, name).id; }
+
+test('routes 1: from the "however" card, Save → New route "Writing" creates it with however and fills the bookmark', ()=>{
+  const a = boot({ now:NOW });
+  a.click({ unit:'cn:however' });
+  assert.ok(a.html().includes('class="icon-btn savebtn" data-save="cn:however"'), 'empty bookmark before saving');
+  a.click({ save:'cn:however' });
+  assert.ok(a.html().includes('Save <i>however</i> to…'), 'sheet title');
+  assert.strictEqual(a.run('sheet.creating'), true, 'with no routes, the new-route form is open');
+  a.run('sheet.name="Writing"'); a.click({ act:'rcreatesave' }); a.click({ act:'sheetdone' });
+  same(refsOf(a, 'Writing'), ['cn:however']);
+  assert.ok(a.toasts.some(t=>/Saved to Writing/.test(t)), 'toast: '+a.toasts.join(' | '));
+  assert.ok(a.html().includes('class="icon-btn savebtn on" data-save="cn:however"'), 'filled bookmark after saving');
+  // The bookmark shows the number of routes when there are several
+  newRoute(a, 'Second', ['cn:however']); a.run('render()');
+  assert.ok(/<span class="badge">2<\/span>/.test(a.html()));
+});
+test('routes 2: the route groups what was saved by type', ()=>{
+  const a = boot({ now:NOW });
+  const id = newRoute(a, 'Writing', ['cn:however']);
+  for(const ref of ['pv:give up', 'col:make a decision', 'grammar:g-linkers']){ a.click({ save:ref }); a.click({ rtoggle:id }); a.click({ act:'sheetdone' }); }
+  same(refsOf(a, 'Writing'), ['cn:however','pv:give up','col:make a decision','grammar:g-linkers']);
+  a.click({ route:id });
+  const h = a.html(), at = s => h.indexOf(s);
+  for(const s of ['Phrasal verbs','Connectors','Collocations','Grammar &amp; theory','Theory + 9 questions']) assert.ok(at(s)>=0, 'missing '+s);
+  assert.ok(at('Phrasal verbs')<at('Connectors') && at('Connectors')<at('Collocations') && at('Collocations')<at('Grammar &amp; theory'), 'groups in a fixed order');
+  assert.ok(h.includes('1 phrasal verb · 1 connector · 1 collocation · 1 grammar topic'));
+});
+test('routes 3: one item in two routes; unticking one keeps the other; Undo restores', ()=>{
+  const a = boot({ now:NOW });
+  const w = newRoute(a, 'Writing'), s = newRoute(a, 'Speaking');
+  a.click({ save:'pv:give up' }); a.click({ rtoggle:w }); a.click({ rtoggle:s }); a.click({ act:'sheetdone' });
+  same(a.run('routesWith("pv:give up").map(r=>r.name)'), ['Writing','Speaking']);
+  a.click({ save:'pv:give up' });
+  assert.ok(a.html().includes(`aria-checked="true" data-rtoggle="${w}"`));
+  a.click({ rtoggle:w }); a.click({ act:'sheetdone' });
+  same(a.run('routesWith("pv:give up").map(r=>r.name)'), ['Speaking']);
+  assert.ok(a.toasts.pop().startsWith('Removed from Writing'));
+  a.click({ undo:'' });
+  same(a.run('routesWith("pv:give up").map(r=>r.name)'), ['Writing','Speaking'], 'undo');
+});
+test('routes 4: selecting several connectors saves them in one go', ()=>{
+  const a = boot({ now:NOW });
+  const id = newRoute(a, 'Linkers');
+  a.click({ lib:'cn' }); a.click({ act:'libsel' });
+  const five = a.run('libListUnits().slice(0,5).map(u=>u.uid)');
+  for(const uid of five) a.click({ lpick:uid });
+  assert.ok(a.html().includes('Save selected to… (5)'));
+  a.click({ act:'libselsave' });
+  assert.ok(a.html().includes('Save 5 items to…'));
+  a.click({ rtoggle:id }); a.click({ act:'sheetdone' });
+  same(refsOf(a, 'Linkers'), five);
+  assert.strictEqual(a.run('libSel'), null, 'selection mode ends after saving');
+});
+test('routes 5: practise, flashcards and test use only the route, including its grammar topic', ()=>{
+  const a = boot({ now:NOW });
+  const id = newRoute(a, 'Writing', ['cn:however','pv:give up','col:make a decision','grammar:g-linkers']);
+  const mine = new Set(['cn:however','pv:give up','col:make a decision', ...a.run('BYLIB.gr.filter(u=>u.item.gtopic==="g-linkers").map(u=>u.uid)')]);
+  a.click({ route:id }); a.click({ rset:'20' }); a.click({ routego:'practise' });
+  const q = a.run('S.session.q');
+  assert.strictEqual(a.run('S.session.mode'), 'route');
+  assert.ok(q.every(x=>mine.has(x.uid)), 'practise: only route units');
+  assert.ok(q.some(x=>x.lib==='gr'), 'practise includes the saved grammar questions');
+  assert.ok(q.filter(isEx).length>=20, 'a short route fills the session');
+  play(a, right());
+  assert.ok(a.run(`S.attempts.filter(x=>x.rid===${JSON.stringify(id)}).every(x=>x.rm==="practise")`) && a.run(`S.attempts.some(x=>x.rid===${JSON.stringify(id)})`), 'attempts carry the route');
+  a.click({ route:id }); a.click({ routego:'flash' });
+  assert.ok(a.run('S.session.q').every(x=>['cn:however','pv:give up','col:make a decision'].includes(x.uid)), 'flashcards: route units, no grammar questions');
+  a.run('S.session=null'); a.click({ route:id }); a.click({ routego:'test' }); a.click({ rt:'n', val:'full' }); a.click({ act:'rtstart' });
+  const t = a.run('S.session.q');
+  assert.ok(t.every(x=>mine.has(x.uid)) && t.filter(x=>x.lib==='gr').every(x=>x.format==='gq'), 'test: route units, grammar in its original format');
+});
+function isEx(x){ return x.kind!=='present'; }
+test('routes 6: reorder, rename, remove and delete persist after reloading; deleting keeps progress', ()=>{
+  const a = boot({ now:NOW });
+  const id = newRoute(a, 'Writing', ['cn:however','pv:give up','col:make a decision']);
+  a.run('learnUnit("pv:give up","ok","use","particle")');
+  a.click({ route:id }); a.click({ act:'redit' });
+  a.click({ rmove:'1|-1' }); a.click({ rdel:'2' });
+  a.run('routeById(routeRef).name="Writing B2"; routeById(routeRef).renamed=true'); a.click({ act:'reditdone' });
+  const b = boot({ state:JSON.parse(a.store.get('lexi:v1')), now:NOW });
+  same(b.run(`routeById(${JSON.stringify(id)}).items.map(x=>x.ref)`), ['pv:give up','cn:however']);
+  assert.strictEqual(b.run(`routeName(routeById(${JSON.stringify(id)}))`), 'Writing B2');
+  const before = JSON.stringify(b.run('S.units'));
+  b.click({ route:id }); b.click({ act:'redit' }); b.click({ act:'rdelete' });
+  assert.strictEqual(b.run('S.routes.length'), 0);
+  assert.strictEqual(JSON.stringify(b.run('S.units')), before, 'progress untouched');
+  b.click({ undo:'' }); assert.strictEqual(b.run('S.routes.length'), 1, 'undo brings the route back');
+});
+test('routes 7: an existing learning list becomes the route "My learning list", in order', ()=>{
+  const st = v5State(); st.v = 3; st.units = {}; st.learnList = ['pv:put off','cn:although','pv:give up'];
+  const a = boot({ state:st, now:NOW });
+  assert.strictEqual(a.run('S.v'), 4);
+  const r = a.run('listRoute(false)');
+  same(r.items.map(x=>x.ref), ['pv:put off','cn:although','pv:give up']);
+  assert.strictEqual(a.run('routeName(listRoute(false))'), 'My learning list');
+  same(a.run('S.learnList'), st.learnList, 'the old list is kept as it was');
+  // What is saved in routes still goes first among new units
+  assert.strictEqual(a.run('chooseNewUnits("pv","",1)[0].uid'), 'pv:put off');
+  a.run('setLang("es")'); assert.strictEqual(a.run('routeName(listRoute(false))'), 'Mi lista de aprendizaje');
+});
+test('routes 8: a pack with routes creates them; importing it again asks before overwriting changes', ()=>{
+  const a = boot({ now:NOW });
+  const pack = items => JSON.stringify(JSON.stringify({ format:'lexi-pack', pack:{ id:'p-routes', name:'Routes',
+    connectors:[{ w:'nonetheless', fn:'contrast', level:'B2', register:'formal', pattern:'sentence-initial + comma', es:'no obstante', en:'however', ex:['It was cold. *Nonetheless*, we swam.','He was tired. *Nonetheless*, he went on.'] }],
+    routes:[{ id:'pv-core-25', name:'25 phrasal verbs activos', name_en:'25 active phrasal verbs', icon:'🎯', items }, { name:'no id', items:[] }] } }));
+  let rep = a.run(`analyzeImport(parseImport(${pack(['pv:find out','cn:nonetheless','grammar:g-future','pv:no such verb','bogus'])}))`);
+  const e = rep.entries[0];
+  assert.ok(e.errors.some(x=>/routes\[1\].*"id"/.test(x)), 'reason for the route without id');
+  assert.ok(e.errors.some(x=>/items\[4\]/.test(x)), 'reason for the bad reference');
+  assert.strictEqual(e.routes[0].pending, 1, 'one reference not found (the pack brings nonetheless)');
+  a.run(`applyImport(analyzeImport(parseImport(${pack(['pv:find out','cn:nonetheless','pv:no such verb'])})))`);
+  const r = a.run('routeById("pv-core-25")');
+  assert.ok(r && r.source==='pack' && r.icon==='🎯'); same(r.items.map(x=>x.ref), ['pv:find out','cn:nonetheless','pv:no such verb']);
+  assert.strictEqual(a.run('routeName(routeById("pv-core-25"))'), '25 active phrasal verbs');
+  a.click({ route:'pv-core-25' }); assert.ok(a.html().includes('Pending'), 'a missing reference shows as pending');
+  // Not changed on the phone: updated without asking
+  a.setNow(NOW+DAY);
+  rep = a.run(`analyzeImport(parseImport(${pack(['pv:find out','pv:give up'])}))`); assert.strictEqual(rep.entries[0].routes[0].modified, false);
+  a.run(`applyImport(analyzeImport(parseImport(${pack(['pv:find out','pv:give up'])})))`);
+  same(a.run('routeById("pv-core-25").items.map(x=>x.ref)'), ['pv:find out','pv:give up']);
+  // Changed on the phone: the preview asks, "keep mine" by default
+  a.setNow(NOW+2*DAY); a.run('routeAdd(routeById("pv-core-25"), ["pv:put off"])');
+  a.setNow(NOW+3*DAY);
+  a.run(`reviewImport(${pack(['pv:look after'])})`); a.click({ go:'data' });
+  assert.ok(a.html().includes('you changed this route'), 'the preview asks');
+  a.click({ act:'applyimport' });
+  same(a.run('routeById("pv-core-25").items.map(x=>x.ref)'), ['pv:find out','pv:give up','pv:put off'], 'kept');
+  a.run(`reviewImport(${pack(['pv:look after'])})`); a.click({ rchoice:'0|0|update' }); a.click({ act:'applyimport' });
+  same(a.run('routeById("pv-core-25").items.map(x=>x.ref)'), ['pv:look after'], 'updated on request');
+});
+test('routes 9: a full route test asks each unit once (plus its grammar questions); "Retry my mistakes" only the mistakes', ()=>{
+  const a = boot({ now:NOW });
+  const refs = ['pv:give up','pv:put off','pv:look after','cn:however','cn:although','col:make a decision','grammar:g-linkers'];
+  const id = newRoute(a, 'Mix', refs);
+  const units = a.run(`routeUnits(routeById(${JSON.stringify(id)})).map(u=>u.uid)`);
+  assert.strictEqual(units.length, 6+9);
+  a.click({ route:id }); a.click({ routego:'test' }); a.click({ rt:'n', val:'full' }); a.click({ act:'rtstart' });
+  const q = a.run('S.session.q').map(x=>x.uid);
+  assert.strictEqual(q.length, units.length); same([...new Set(q)].sort(), [...units].sort());
+  play(a, halfRight());
+  const rec = a.run('S.tests[S.tests.length-1]'); assert.strictEqual(rec.kind, 'route'); assert.strictEqual(rec.ref, id);
+  assert.ok(rec.breakdown.byType && rec.breakdown.byType.theory && rec.breakdown.bySkill && rec.breakdown.byFormat);
+  assert.ok(a.html().includes('By type') && a.html().includes('Retry my mistakes'));
+  const failed = [...new Set(rec.detail.filter(d=>d.r==='bad').map(d=>d.uid))].sort();
+  a.click({ act:'rtretry' });
+  same([...new Set(a.run('S.session.q').map(x=>x.uid))].sort(), failed);
+  assert.strictEqual(a.run('S.session.mode'), 'routetest');
+});
+test('routes 10: two tests of 10 in a route of 20 units cover all 20', ()=>{
+  const a = boot({ now:NOW });
+  const id = newRoute(a, 'Twenty', a.run('BYLIB.pv.slice(0,20).map(u=>u.uid)'));
+  const seen = new Set();
+  for(let k=0;k<2;k++){ a.click({ route:id }); a.click({ routego:'test' }); a.click({ rt:'n', val:'10' }); a.click({ act:'rtstart' });
+    a.run('S.session.q').forEach(x=>seen.add(x.uid)); play(a, mostlyRight()); a.setNow(NOW+(k+1)*3600e3); }
+  assert.strictEqual(seen.size, 20);
+});
+test('routes 11: the result compares with the previous test of the route; history and chart update', ()=>{
+  const a = boot({ now:NOW });
+  const id = newRoute(a, 'Ten', a.run('BYLIB.cn.slice(0,10).map(u=>u.uid)'));
+  const run = pick => { a.click({ route:id }); a.click({ routego:'test' }); a.click({ rt:'n', val:'10' }); a.click({ act:'rtstart' }); play(a, pick); };
+  run(halfRight());
+  assert.ok(a.html().includes('Your first test of this route'));
+  a.setNow(NOW+DAY); run(right());
+  const h = a.html();
+  assert.ok(/\+\d+% compared with/.test(h), 'comparison: '+visible(h).match(/.{0,30}compared.{0,30}/));
+  assert.ok(h.includes('Better:'), 'units that improved');
+  a.click({ route:id }); a.click({ routego:'stats' });
+  const s = a.html();
+  assert.ok(s.includes('Test history') && s.includes('<svg class="spark wide"') && (s.match(/data-result=/g)||[]).length===2, 'history with chart');
+  assert.ok(s.includes('Weak points') || a.run(`routeWeak(routeById(${JSON.stringify(id)})).length`)===0);
+  for(const k of ['Known or better','Minutes','Theory read','Sessions','Last activity','Units','Most failed']) assert.ok(s.includes(k), 'missing '+k);
+});
+test('routes 12: "Copy updates" carries route tests with mistakes, attempts with routeId and the route summary, once', ()=>{
+  const a = boot({ now:NOW });
+  const id = newRoute(a, 'Exported', ['pv:give up','pv:put off','cn:however','grammar:g-linkers']);
+  a.click({ route:id }); a.click({ routego:'test' }); a.click({ rt:'n', val:'10' }); a.click({ act:'rtstart' }); play(a, halfRight());
+  a.click({ route:id }); a.click({ routego:'practise' }); play(a, right());
+  a.setNow(NOW+60e3);
+  const e = a.run('getExport(false)');
+  assert.strictEqual(e.version, 5);
+  assert.strictEqual(e.routeTests.length, 1); const rt = e.routeTests[0];
+  assert.ok(rt.routeId===id && rt.mistakes.length && rt.mistakes.every(m=>'question' in m && 'given' in m && m.correct && m.uid && m.format) && rt.byType && rt.options.length===10);
+  assert.ok(!e.tests.some(t=>t.kind==='route'), 'route tests are not repeated in "tests"');
+  assert.ok(e.attempts.some(x=>x.routeId===id && x.routeMode==='test') && e.attempts.some(x=>x.routeId===id && x.routeMode==='practise'));
+  const r = e.routes.find(x=>x.id===id);
+  assert.ok(r && r.items.length===4 && r.summary.tests===1 && r.summary.sessions===1 && 'knownPct' in r.summary && r.items.find(x=>x.ref==='grammar:g-linkers').questions===9);
+  assert.ok(e.summary.routes.some(x=>x.routeId===id && x.scores.length===1));
+  a.run('markExported(getExport(false))'); a.setNow(NOW+120e3); a.run('exportCache=null');
+  const e2 = a.run('getExport(false)');
+  assert.ok(!e2.routeTests.length && !e2.attempts.length && !e2.routes.length && !e2.summary.routes.length, 'nothing repeated without new activity');
+  const full = a.run('buildExport(true)'); assert.ok(full.routes.length===1 && full.routeTests.length===1, 'the full export has the whole history');
+});
+test('routes: "Add more" searches every library in English and Spanish, and reading theory follows the route', ()=>{
+  const a = boot({ now:NOW });
+  const page = a.run('[...PAGES.keys()][0]'), id = newRoute(a, 'Read', ['grammar:g-linkers', 'page:'+page]);
+  same(a.run('addCandidates("aplazar")').slice(0,1), ['pv:put off']);
+  assert.ok(a.run('addCandidates("linking").includes("grammar:g-linkers")'), 'grammar topics by title');
+  a.click({ route:id }); a.click({ act:'radd' }); a.run('addQuery="aplazar"'); a.click({ raddpick:'pv:put off' }); a.click({ act:'raddsave' });
+  assert.ok(refsOf(a, 'Read').includes('pv:put off'));
+  a.click({ routego:'read' });
+  assert.ok(a.run('S.read["g-linkers"]') && a.html().includes('Next page'), 'opens the first unread page and offers the next');
+  a.click({ routego:'read', rid:id });
+  assert.ok(a.run(`S.read[${JSON.stringify(page)}]`) && a.html().includes('All the theory in this route is read'));
 });
 
 /* ---------- Report ---------- */

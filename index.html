@@ -485,6 +485,46 @@ tr[data-item]{cursor:pointer}
 .stkey i{display:inline-block;width:11px;height:11px;border:1px solid rgba(30,33,24,.25)}
 tr[data-unit],tr[data-lib]{cursor:pointer}
 
+/* ---------- v7.1: routes and the "Save to…" sheet ---------- */
+.savebtn{position:relative}
+.savebtn.on{color:var(--course);border-color:var(--course-line)}
+.savebtn .badge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--course);color:var(--course-ink);font-family:var(--cond);font-weight:700;font-size:12px;line-height:18px;text-align:center}
+.sess-top .savebtn{margin-left:4px}
+.urow{display:flex;align-items:center}
+.urow .rowbtn{flex:1;min-width:0}
+.urow .savebtn{margin-right:10px}
+.urow .icon-btn+.icon-btn{margin-left:6px}
+.cd td.sv{width:1%;padding:6px}
+.scrim{position:fixed;inset:0;z-index:30;border:none;padding:0;background:rgba(18,21,16,.45);animation:fade .2s var(--ease)}
+.sheetp{position:fixed;left:0;right:0;bottom:0;z-index:31;max-width:560px;max-height:86dvh;margin:0 auto;overflow-y:auto;overscroll-behavior:contain;background:var(--bg);border-top:1.5px solid var(--ink);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:6px 16px calc(16px + env(safe-area-inset-bottom,0px));box-shadow:var(--shadow-up);animation:rise .28s var(--ease)}
+.sheetp h3{font-family:var(--cond);font-size:22px;letter-spacing:.03em;text-transform:uppercase;margin:4px 0 12px}
+.sheetp h3 i{font-style:normal;color:var(--course)}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--rule);margin:6px auto 10px}
+@keyframes rise{from{transform:translateY(40px);opacity:0}}
+@keyframes fade{from{opacity:0}}
+.rowbtn[role="checkbox"]{justify-content:flex-start}
+.rowbtn[role="checkbox"]:disabled{cursor:default;opacity:.6}
+.cbx{flex:none;width:26px;height:26px;border:2px solid var(--rule);border-radius:4px;display:inline-flex;align-items:center;justify-content:center;background:var(--surface);color:transparent}
+.cbx svg.i{stroke-width:3}
+[aria-checked="true"]>.cbx{background:var(--course);border-color:var(--course);color:var(--course-ink)}
+[aria-checked="mixed"]>.cbx{border-color:var(--course);color:var(--course);opacity:.7}
+.emojis{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 12px}
+.emojis button{width:44px;height:44px;border-radius:var(--r);border:1px solid var(--rule);background:var(--surface);font-size:21px;line-height:1}
+.emojis button[aria-pressed="true"]{border-color:var(--course);box-shadow:0 0 0 2px var(--course)}
+.ricon{flex:none;width:42px;height:42px;display:flex;align-items:center;justify-content:center;font-size:23px;border:1px solid var(--rule);border-radius:var(--r);background:var(--surface-2);color:var(--course)}
+.rcard{display:flex;align-items:center}
+.rcard .rowbtn{flex:1;min-width:0;justify-content:flex-start;gap:12px}
+.rcard .rowbtn>svg.i:last-child{margin-left:auto}
+.rcard>.btn{flex:none;margin-right:10px;min-height:44px;padding:0 12px}
+span.meter{display:block;max-width:220px}
+.meter>span{display:block;height:100%;background:var(--thicket-ink)}
+.rgroup{margin-top:18px}
+.rgroup>summary{min-height:44px;font-family:var(--cond);font-size:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--contour)}
+.rchoice{margin-top:8px}
+.toast{display:flex;align-items:center;gap:12px}
+.toast button{flex:none;min-height:36px;padding:0 4px;background:none;border:none;color:var(--open);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.spark.wide{width:100%;max-width:260px}
+
 /* ---------- Tab bar ---------- */
 #tabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--rule);padding-bottom:env(safe-area-inset-bottom,0px);z-index:10}
 #tabs nav{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
@@ -521,6 +561,7 @@ tr[data-unit],tr[data-lib]{cursor:pointer}
 <script src="stats.js"></script>
 <script src="engine.js"></script>
 <script src="study.js"></script>
+<script src="routes.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

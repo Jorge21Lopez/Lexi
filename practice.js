@@ -213,15 +213,15 @@ function breakdownOf(results){
   return b;
 }
 function finishQuiz(ss){
-  if(ss.done || !['mixed','focused','challenge','libtest'].includes(ss.mode)) return;
+  if(ss.done || !QUIZ_MODES.includes(ss.mode)) return;
   ss.done=true;
   const res=ss.results, score=res.filter(r=>r.r!=='bad').length, max=res.length, sec=Math.round((Date.now()-ss.started)/1000), d=today();
   const detail=res.map((r,k)=>{ const u=UNITS.get(r.uid); return { n:k+1, id:r.id||legacyId(r.uid||''), uid:r.uid, lib:u?.lib||null, cat:u?.item?.cat||u?.lib||null, gtopic:u?.item?.gtopic||null,
     format:r.f||null, skill:r.s||null, stem:String(r.q||'').slice(0,160), given:r.a||'', correct:r.c||'', r:r.r }; });
   if(ss.mode!=='challenge'){
-    const lib=ss.mode==='libtest';
-    const rec={ id:'t'+Date.now().toString(36), kind:lib?'library':'mixed', ref:lib?ss.lib:(ss.only||'mixed'), title:sessionTitle(ss), mode:'practice', section:lib?'library':'mixed', at:Date.now(), durationSec:sec,
-      score, max, parts:[], detail, tasks:[], breakdown:breakdownOf(res), opts:ss.opts||null };
+    const lib=ss.mode==='libtest', route=ss.mode==='routetest', kind=lib?'library':route?'route':'mixed';
+    const rec={ id:'t'+Date.now().toString(36), kind, ref:lib?ss.lib:route?ss.routeId:(ss.only||'mixed'), title:sessionTitle(ss), mode:'practice', section:kind, at:Date.now(), durationSec:sec,
+      score, max, parts:[], detail, tasks:[], breakdown:route ? Object.assign(breakdownOf(res), { byType:typeBreakdown(res) }) : breakdownOf(res), opts:ss.opts||null };
     S.tests.push(rec); ss.rec=rec.id; d.t=(d.t||0)+1;
   } else {
     const val=CH_SCORE[ss.ch] ? score : (max ? Math.round(score/max*100) : 0);
@@ -235,6 +235,11 @@ function finishQuiz(ss){
   exportCache=null;
 }
 function sessionTitle(ss){
+  const r=ss.routeId && routeById(ss.routeId), rn=r ? routeName(r) : '';
+  if(ss.mode==='routetest') return `${rn}: test`;
+  if(r && ss.mode==='route') return T('Practise: ','Práctica: ')+rn;
+  if(r && ss.mode==='flash') return T('Flashcards: ','Tarjetas: ')+rn;
+  if(r && ss.mode==='learn') return T('Learn new: ','Aprender: ')+rn;
   if(ss.mode==='challenge') return lab(CH_L, ss.ch);
   if(ss.mode==='focused') return T('Focused practice: ','Práctica enfocada: ')+onlyName(ss.only);
   if(ss.mode==='mixed') return ss.opts?.mistakes ? T('My mistakes','Mis fallos') : T('Mixed test','Test mixto');
@@ -249,29 +254,33 @@ function breakdownHTML(b){
   const rows=(m, name)=>Object.entries(m||{}).sort((x,y)=>acc(x[1])-acc(y[1])).map(([k,v])=>`<li><div class="row spread"><span>${esc(name(k))}</span><span class="small muted">${v.ok}/${v.n}</span></div><div class="meter"><div style="width:${v.ok/v.n*100}%"></div></div></li>`).join('');
   const line = b.bySkill && Object.keys(b.bySkill).length ? `<p class="skillline">${SKILLS.filter(k=>b.bySkill[k]).map(k=>`${esc(lab(SKILL_L,k))} <b>${b.bySkill[k].ok}/${b.bySkill[k].n}</b>`).join(' · ')}</p>` : '';
   return `${line}
+    ${b.byType?`<h2>${T('By type','Por tipo')}</h2><ul class="list">${rows(b.byType, k=>lab(RGROUP_L,k))}</ul>`:''}
     ${b.byFormat && Object.keys(b.byFormat).length?`<h2>${T('By format','Por formato')}</h2><ul class="list">${rows(b.byFormat, fmtName)}</ul>`:''}
-    ${Object.keys(b.byArea||{}).length>1?`<h2>${T('By area','Por área')}</h2><ul class="list">${rows(b.byArea, k=>lab(AREA_L,k))}</ul>`:''}
+    ${!b.byType && Object.keys(b.byArea||{}).length>1?`<h2>${T('By area','Por área')}</h2><ul class="list">${rows(b.byArea, k=>lab(AREA_L,k))}</ul>`:''}
     ${!b.byFormat && Object.keys(b.byCategory||{}).length?`<h2>${T('By category','Por categoría')}</h2><ul class="list">${rows(b.byCategory, k=>catName(k))}</ul>`:''}
     ${Object.keys(b.byGrammarTopic||{}).length?`<h2>${T('By grammar topic','Por tema de gramática')}</h2><ul class="list">${rows(b.byGrammarTopic, k=>{ const g=GRAMMAR.get(k); return g?L(g,'title'):k; })}</ul>`:''}`;
 }
 function quizSummaryHTML(ss){
   const res=ss.results, ok=res.filter(r=>r.r!=='bad').length, bad=res.filter(r=>r.r==='bad');
-  const ch=ss.mode==='challenge', count=ch && CH_SCORE[ss.ch];
+  const ch=ss.mode==='challenge', count=ch && CH_SCORE[ss.ch], route=ss.mode==='routetest', rec=route && S.tests.find(t=>t.id===ss.rec), rid=esc(ss.routeId||'');
   const big=count ? `<b>${ok}</b><span>${ss.ch==='speed'?T('right in 90 seconds','aciertos en 90 segundos'):pl(ok,'in a row','in a row','seguida','seguidas')}</span>` : `<b>${ok}/${res.length}</b><span>${res.length?Math.round(ok/res.length*100):0}%</span>`;
-  const again = ch ? `data-ch="${ss.ch}"` : ss.mode==='focused' ? `data-focus="${esc(ss.only)}"` : ss.mode==='libtest' ? 'data-act="libtest"' : 'data-act="mixed"';
+  const again = ch ? `data-ch="${ss.ch}"` : route ? `data-routego="test" data-rid="${rid}"` : ss.mode==='focused' ? `data-focus="${esc(ss.only)}"` : ss.mode==='libtest' ? 'data-act="libtest"' : 'data-act="mixed"';
   const failedUnits=[...new Set(bad.map(r=>r.uid).filter(u=>u && UNITS.has(u)))];
   return `<div class="sess-top"><button class="icon-btn" data-act="finish" aria-label="${T('Back to home','Volver al inicio')}">${ic('close')}</button><b style="flex:1">${esc(sessionTitle(ss))}</b><span class="count">${T('Finish','Meta')}</span></div>
     <h1>${ch?T('Challenge complete','Reto terminado'):T('Test complete','Test terminado')}</h1>
     <div class="score">${big}</div>
     ${ch?`<p class="muted">${ss.best?T('New personal best!','¡Nuevo récord personal!'):chBest(ss.ch)!=null?T(`Personal best: ${chBestLabel(ss.ch)}`,`Récord personal: ${chBestLabel(ss.ch)}`):''}${ss.ch==='daily'?' '+T(`Daily challenge streak: ${dailyStreak()}.`,`Racha de retos diarios: ${dailyStreak()}.`):''}</p>`:''}
-    ${!count && res.length ? breakdownHTML(breakdownOf(res)) : ''}
+    ${rec?routeCompareHTML(rec):''}
+    ${!count && res.length ? breakdownHTML(rec ? rec.breakdown : breakdownOf(res)) : ''}
     ${bad.length?`<h2>${T('Your mistakes','Tus fallos')}</h2><table class="cd"><tbody>${bad.map((r,k)=>{ const u=UNITS.get(r.uid); const link=u ? (u.item ? `data-item="${esc(u.item.id)}"` : `data-unit="${esc(u.uid)}"`) : '';
       return `<tr ${link}><th>${k+1}</th><td><div class="small muted">${esc(fmtName(r.f))}${u?' · '+esc(unitName(u)):''}</div><div class="small"${r.f==='translate'?' lang="es"':''}>${esc(r.q)}</div>
-      <div class="ans-row bad-t">${ic('x','sm')}<span class="${r.a?'struck':''}">${esc(r.a)||T('(blank)','(en blanco)')}</span></div><div class="ans-row ok-t">${ic('check','sm')}<b>${esc(r.c)}</b></div></td></tr>`; }).join('')}</tbody></table>`:''}
+      <div class="ans-row bad-t">${ic('x','sm')}<span class="${r.a?'struck':''}">${esc(r.a)||T('(blank)','(en blanco)')}</span></div><div class="ans-row ok-t">${ic('check','sm')}<b>${esc(r.c)}</b></div></td><td class="sv">${u?saveBtn(u.uid, unitName(u), 'sm'):''}</td></tr>`; }).join('')}</tbody></table>`:''}
     <div class="foot"><div class="actions">
-      ${failedUnits.length?`<button class="btn primary big block" data-learnthese="${esc(failedUnits.slice(0,8).join('|'))}">${T('Learn these','Aprender estos')} ${ic('go')}</button>`:''}
-      ${bad.length?`<button class="btn block" data-act="mixmistakes">${T('Practise my mistakes','Practicar mis fallos')}</button>`:''}
+      ${route&&bad.length?`<button class="btn primary big block" data-act="rtretry">${T('Retry my mistakes','Repetir mis fallos')} ${ic('go')}</button>`:''}
+      ${failedUnits.length?`<button class="btn ${route?'':'primary big'} block" data-learnthese="${esc(failedUnits.slice(0,8).join('|'))}"${route?` data-rid="${rid}"`:''}>${T('Learn these','Aprender estos')}${route?'':' '+ic('go')}</button>`:''}
+      ${bad.length?(route?`<button class="btn block" data-act="rtpractise">${T('Practise these','Practicar estos')}</button>`:`<button class="btn block" data-act="mixmistakes">${T('Practise my mistakes','Practicar mis fallos')}</button>`):''}
       <button class="btn ${bad.length?'':'primary big'} block" ${again}>${T('Try again','Repetir')}</button>
+      ${route?`<button class="btn block" data-route="${rid}">${T('Back to the route','Volver a la ruta')}</button>`:''}
       <button class="btn ghost block" data-act="finish">${T('Back to home','Volver al inicio')}</button></div></div>`;
 }
 function challengesHTML(list){
