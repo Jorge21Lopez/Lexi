@@ -101,7 +101,7 @@ En `attempts` y `srs` pueden aparecer ids `gq:…` (preguntas de gramática repa
 }
 ```
 
-**Bilingüe:** cada texto explicativo lleva versión inglesa con sufijo `_en` (`exp_en`, `hint_en`, `title_en`, `html_en`, `e_en`, `q_en`, `stem_en`, `instructions_en`; en phrasal, `en`). Ver `lexi-prompt-formatos.md`, sección 1b.
+**Bilingüe:** cada texto explicativo lleva versión inglesa con sufijo `_en` (`exp_en`, `hint_en`, `title_en`, `html_en`, `e_en`, `q_en`, `stem_en`, `instructions_en`; en phrasal, `en`). Ver `docs/lexi-prompt-formatos.md`, sección 1b.
 
 Un pack con el mismo `id` sustituye al anterior (`mode: "replace"`, por defecto) o se fusiona con él (`mode: "merge"`: añade y actualiza por id sin borrar lo demás). Se pueden pegar varios packs a la vez (lista JSON o uno detrás de otro). Un elemento con el mismo `id` que uno del banco base lo sobrescribe.
 
@@ -152,7 +152,7 @@ Topics: travel, work, shopping, health, education, relationships, freetime, envi
 
 Temas de phrasal (`theme`): rutina, relaciones, viajes, trabajo, problemas, comunicacion, dinero, salud, ocio.
 
-**Librerías nuevas en los packs (v7, todo opcional).** El detalle de campos, ejemplos JSON y reglas está en `lexi-prompt-formatos.md`:
+**Librerías nuevas en los packs (v7, todo opcional).** El detalle de campos, ejemplos JSON y reglas está en `docs/lexi-prompt-formatos.md`:
 
 - `connectors`: `w`, `fn` (add, contrast, reason, result, purpose, example, sequence, opinion, conclusion, condition, time), `level`, `register`, `pattern`, `es`, `en`, `ex` (2+ con el conector entre `*asteriscos*`), `wrong` (`"frase mal => frase bien"`), `confuseWith`, `alsoCorrect`, `join`.
 - `collocations`: `c`, `verb`, `noun`, `es`, `en`, `ex` (collocation entre asteriscos), `wrongVerb`, `theme`, `alsoCorrect` (se aceptan), `avoid` (cambian el sentido: ni se aceptan ni salen como opción).
